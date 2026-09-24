@@ -1,0 +1,816 @@
+@import 'tailwindcss';
+
+/* Self-hosted OFL fonts. No CDN, no Google Fonts <link>: the plugin runs offline. */
+@font-face {
+	font-family: 'Archivo';
+	font-style: normal;
+	font-weight: 700;
+	font-display: swap;
+	src: url('/fonts/archivo-700-latin.woff2') format('woff2');
+}
+
+@font-face {
+	font-family: 'Archivo Narrow';
+	font-style: normal;
+	font-weight: 500;
+	font-display: swap;
+	src: url('/fonts/archivo-narrow-500-latin.woff2') format('woff2');
+}
+
+@font-face {
+	font-family: 'Archivo Narrow';
+	font-style: normal;
+	font-weight: 700;
+	font-display: swap;
+	src: url('/fonts/archivo-narrow-700-latin.woff2') format('woff2');
+}
+
+@font-face {
+	font-family: 'IBM Plex Mono';
+	font-style: normal;
+	font-weight: 500;
+	font-display: swap;
+	src: url('/fonts/ibm-plex-mono-500-latin.woff2') format('woff2');
+}
+
+@font-face {
+	font-family: 'IBM Plex Mono';
+	font-style: normal;
+	font-weight: 600;
+	font-display: swap;
+	src: url('/fonts/ibm-plex-mono-600-latin.woff2') format('woff2');
+}
+
+:root {
+	--panel: #33373a;
+	--panel-hi: #43474a;
+	--panel-lo: #26292b;
+	--window: #16181a;
+	--bezel-out: #15171a;
+	--bezel-in: #4a4e51;
+	--ivory: #e8e3d6;
+	--dim: #a7aba4;
+	--amber: #e0a33c;
+	--over: #f2543c;
+	--knob-cap: #2a2d2f;
+	--slot-off: #1b1e20;
+	--lamp-off: #4a3a1c;
+	font-family: 'Archivo Narrow', 'Arial Narrow', sans-serif;
+	color: var(--ivory);
+	background: var(--bezel-out);
+	font-synthesis: none;
+}
+
+* {
+	box-sizing: border-box;
+	/* Radius system is all right angles. The only curves are round knobs and round lamps. */
+	border-radius: 0;
+}
+
+html,
+body {
+	height: 100%;
+	margin: 0;
+	overflow: hidden;
+	background: var(--bezel-out);
+}
+
+button {
+	font: inherit;
+}
+
+/* The stage pins the panel to the top-left corner. The panel scales from
+   that same corner, so k is the only thing that moves it: no centre-origin
+   offset, no band creeping in on the left or top, no clipped right edge. */
+.stage {
+	position: fixed;
+	inset: 0;
+	display: grid;
+	place-items: start;
+	overflow: hidden;
+}
+
+.panel {
+	position: relative;
+	width: 1120px;
+	height: 560px;
+	overflow: hidden;
+	background: var(--panel);
+	/* Corner origin, not centre: the layout box always starts at (0,0), so a
+	   scaled panel grows/shrinks away from the top-left instead of sliding
+	   towards the middle and leaving dead space on the leading edges. */
+	transform-origin: top left;
+	user-select: none;
+}
+
+/* Procedural texture layers: static, absolute, never scroll. */
+.texture {
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+}
+
+.texture-brush {
+	z-index: 1;
+	background:
+		repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.01) 0 1px, transparent 1px 3px),
+		linear-gradient(
+			180deg,
+			rgba(255, 255, 255, 0.035) 0%,
+			rgba(255, 255, 255, 0) 42%,
+			rgba(0, 0, 0, 0.14) 100%
+		);
+}
+
+.texture-grain {
+	z-index: 1;
+	opacity: 0.028;
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23g)'/%3E%3C/svg%3E");
+}
+
+/* Exactly two engraved seams for the whole site. */
+.seam {
+	position: absolute;
+	left: 0;
+	z-index: 2;
+	width: 1120px;
+	height: 1px;
+	background: var(--panel-lo);
+	box-shadow: 0 1px 0 var(--panel-hi);
+	pointer-events: none;
+}
+
+.seam-one {
+	top: 50px;
+}
+
+.seam-two {
+	top: 354px;
+}
+
+/* Four corner screws, each rotated to a different angle. */
+.screw {
+	position: absolute;
+	z-index: 3;
+	width: 10px;
+	height: 10px;
+	border-radius: 50%;
+	background: radial-gradient(circle at 34% 30%, var(--panel-hi), var(--panel-lo) 72%);
+	box-shadow:
+		inset 0 0 0 1px rgba(0, 0, 0, 0.4),
+		0 1px 0 rgba(255, 255, 255, 0.05);
+	pointer-events: none;
+}
+
+.screw::before,
+.screw::after {
+	position: absolute;
+	background: rgba(0, 0, 0, 0.55);
+	content: '';
+}
+
+.screw::before {
+	top: 4.5px;
+	right: 1px;
+	left: 1px;
+	height: 1px;
+}
+
+.screw::after {
+	top: 1px;
+	bottom: 1px;
+	left: 4.5px;
+	width: 1px;
+}
+
+.screw-tl {
+	top: 9px;
+	left: 9px;
+	transform: rotate(24deg);
+}
+
+.screw-tr {
+	top: 9px;
+	left: 1101px;
+	transform: rotate(71deg);
+}
+
+.screw-bl {
+	top: 541px;
+	left: 9px;
+	transform: rotate(133deg);
+}
+
+.screw-br {
+	top: 541px;
+	left: 1101px;
+	transform: rotate(200deg);
+}
+
+/* Top silkscreen strip, y 0 to 50. */
+.brand {
+	position: absolute;
+	top: 0;
+	left: 32px;
+	z-index: 2;
+	display: flex;
+	height: 50px;
+	margin: 0;
+	align-items: center;
+	font-family: 'Archivo', sans-serif;
+	font-size: 16px;
+	font-weight: 700;
+	letter-spacing: 0.14em;
+	color: var(--ivory);
+}
+
+/* Right end of the top strip: the MODE group sits left of the oversampling
+   group, which sits left of the bypass group, and the whole cluster is
+   right-aligned to x = 1088. */
+.top-right {
+	position: absolute;
+	top: 0;
+	right: 32px;
+	z-index: 2;
+	display: flex;
+	height: 50px;
+	align-items: center;
+}
+
+/* Three-position emphasis mode switch (OFF / TAPE / TUBE): same recessed slot
+   and raised caps as .os-switch, only the cap count changes. The doubled
+   selector keeps the 102px override ahead of .os-switch's own 136px. */
+.mode {
+	display: flex;
+	margin-right: 32px;
+	align-items: center;
+}
+
+.mode .switch-label {
+	margin-right: calc(8px - 0.16em);
+	margin-left: 0;
+}
+
+.mode .mode-switch {
+	width: 102px;
+}
+
+.oversampling {
+	display: flex;
+	align-items: center;
+}
+
+.oversampling .oversampling-label {
+	margin-right: calc(8px - 0.16em);
+	margin-left: 0;
+}
+
+.bypass {
+	display: flex;
+	margin-left: 32px;
+	align-items: center;
+}
+
+.switch-label {
+	margin-left: 6px;
+	margin-right: -0.16em;
+	font-family: 'Archivo Narrow', sans-serif;
+	font-size: 9px;
+	font-weight: 700;
+	letter-spacing: 0.16em;
+	color: var(--ivory);
+}
+
+.bypass .rocker {
+	margin-left: 8px;
+}
+
+/* Multi-position switch slot: recessed trough and raised caps, shared by the
+   four-position oversampling switch (136px) and the three-position MODE
+   switch (102px via .mode-switch). Caps sit side by side with no lamp: the
+   pressed cap is the indicator. */
+.os-switch {
+	display: flex;
+	width: 136px;
+	height: 22px;
+	background: #191b1d;
+	border: 1px solid var(--bezel-out);
+	border-radius: 0;
+	box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.8);
+}
+
+.os-seg {
+	position: relative;
+	flex: 1 1 0;
+	margin: 0;
+	padding: 0;
+	background: none;
+	border: 0;
+	border-radius: 0;
+	font-family: 'IBM Plex Mono', ui-monospace, monospace;
+	font-size: 9px;
+	font-weight: 500;
+	letter-spacing: 0.1em;
+	color: var(--dim);
+	cursor: pointer;
+	transition: color 80ms ease;
+}
+
+.os-seg::before {
+	position: absolute;
+	inset: 2px;
+	background: linear-gradient(180deg, #4a4f52 0%, #34383a 52%, #2a2d2f 100%);
+	box-shadow:
+		inset 0 1px 0 rgba(255, 255, 255, 0.16),
+		0 1px 2px rgba(0, 0, 0, 0.6);
+	content: '';
+	transition:
+		transform 80ms ease,
+		box-shadow 80ms ease;
+}
+
+/* The selected segment wears the pressed state, so position reads the same way
+   it does on the rocker. The label rides the cap down with it. */
+.os-seg.on::before,
+.os-seg:active::before {
+	transform: translateY(2px);
+	box-shadow:
+		inset 0 1px 0 rgba(255, 255, 255, 0.05),
+		inset 0 2px 5px rgba(0, 0, 0, 0.7);
+}
+
+.os-seg-label {
+	position: relative;
+	z-index: 1;
+	transition: transform 80ms ease;
+}
+
+.os-seg.on .os-seg-label,
+.os-seg:active .os-seg-label {
+	transform: translateY(2px);
+}
+
+.os-seg.on {
+	color: var(--ivory);
+}
+
+.os-seg:focus-visible {
+	outline: 1px solid var(--amber);
+	outline-offset: -1px;
+}
+
+.os-seg:disabled {
+	cursor: default;
+}
+
+.os-seg:disabled::before {
+	background: linear-gradient(180deg, #3a3e40 0%, #2b2e30 52%, #26292b 100%);
+	box-shadow: none;
+}
+
+/* Round lamps: the only curves besides the knobs. */
+.lamp {
+	display: block;
+	flex: none;
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	background: var(--lamp-off);
+	box-shadow: inset 0 0 2px rgba(0, 0, 0, 0.65);
+}
+
+.lamp.lit {
+	background: var(--amber);
+	box-shadow: 0 0 6px rgba(224, 163, 60, 0.75);
+}
+
+.lamp-over.lit {
+	background: var(--over);
+	box-shadow: 0 0 6px rgba(242, 84, 60, 0.8);
+}
+
+/* Display window: x 32 to 1088, y 64 to 340. */
+.window {
+	position: absolute;
+	top: 64px;
+	left: 32px;
+	z-index: 2;
+	width: 1056px;
+	height: 276px;
+	padding: 8px 10px;
+	background: var(--window);
+	box-shadow:
+		inset 0 2px 6px rgba(0, 0, 0, 0.7),
+		inset 0 0 0 1px var(--bezel-in),
+		0 0 0 1px var(--bezel-out),
+		0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.win-body {
+	display: flex;
+	gap: 10px;
+	height: 100%;
+}
+
+.ladder-col {
+	display: flex;
+	flex: none;
+	width: 18px;
+	align-items: center;
+	justify-content: center;
+}
+
+.ladder {
+	display: flex;
+	flex-direction: column-reverse;
+	gap: 1px;
+	width: 18px;
+	height: 258px;
+}
+
+.ladder i {
+	display: block;
+	min-height: 0;
+	flex: 1;
+	background: var(--slot-off);
+}
+
+.ladder i.on {
+	background: var(--amber);
+}
+
+.ladder i.on.hot {
+	background: var(--over);
+}
+
+.win-center {
+	display: flex;
+	flex: none;
+	flex-direction: column;
+	width: 980px;
+}
+
+.micro-top {
+	display: flex;
+	height: 14px;
+	gap: 6px;
+	align-items: center;
+	justify-content: space-between;
+}
+
+.micro-status {
+	display: flex;
+	gap: 6px;
+	align-items: center;
+}
+
+/* Display mode keys, not hardware: plain text buttons on the left of the
+   micro strip. The rocker language stays reserved for real controls. */
+.view-switch {
+	display: flex;
+	gap: 6px;
+	align-items: center;
+}
+
+.view-btn {
+	display: flex;
+	margin: 0;
+	padding: 0;
+	align-items: center;
+	background: none;
+	border: 0;
+	border-radius: 0;
+	font-family: 'IBM Plex Mono', ui-monospace, monospace;
+	font-size: 9px;
+	font-weight: 500;
+	letter-spacing: 0.1em;
+	line-height: 11px;
+	color: var(--dim);
+	cursor: pointer;
+	transition: color 80ms ease;
+}
+
+.view-btn.active {
+	color: var(--amber);
+}
+
+.view-btn:hover,
+.view-btn:focus-visible {
+	color: var(--ivory);
+}
+
+.view-btn:focus-visible {
+	outline: 1px solid var(--amber);
+	outline-offset: 1px;
+}
+
+.micro-bottom {
+	display: flex;
+	height: 12px;
+	align-items: center;
+	justify-content: flex-end;
+}
+
+.emph-label {
+	margin-right: auto;
+}
+
+.micro {
+	font-family: 'IBM Plex Mono', ui-monospace, monospace;
+	font-size: 9px;
+	font-weight: 500;
+	letter-spacing: 0.1em;
+	color: var(--dim);
+}
+
+.over-label.lit {
+	color: var(--over);
+}
+
+.ceiling-label {
+	color: var(--amber);
+}
+
+.curve-svg {
+	display: block;
+	width: 980px;
+	height: 168px;
+}
+
+.graticule {
+	fill: none;
+	stroke: var(--dim);
+	stroke-width: 1;
+	opacity: 0.35;
+}
+
+.ceiling-line {
+	stroke: var(--amber);
+	stroke-width: 1;
+	stroke-dasharray: 4 4;
+	opacity: 0.5;
+}
+
+.curve-line {
+	fill: none;
+	stroke: var(--amber);
+	stroke-width: 2;
+	vector-effect: non-scaling-stroke;
+}
+
+/* EQ view: de-emphasis, the mirror of the amber pre-EQ trace. Dashes stay in
+   path space, matching .ceiling-line (the other 1px 4-4 dashed overlay). */
+.eq-post {
+	fill: none;
+	stroke: var(--dim);
+	stroke-width: 1;
+	stroke-dasharray: 4 4;
+	opacity: 0.5;
+}
+
+.divider {
+	height: 1px;
+	background: var(--panel-lo);
+}
+
+.wave-svg {
+	display: block;
+	width: 980px;
+	height: 65px;
+}
+
+.wave-input {
+	fill: none;
+	stroke: var(--dim);
+	stroke-width: 1;
+	opacity: 0.55;
+	vector-effect: non-scaling-stroke;
+}
+
+.wave-output-fill {
+	fill: var(--amber);
+	opacity: 0.3;
+}
+
+.wave-output-stroke {
+	fill: none;
+	stroke: var(--amber);
+	stroke-width: 1;
+	vector-effect: non-scaling-stroke;
+}
+
+.wave-clipped {
+	fill: var(--over);
+	opacity: 0.85;
+}
+
+/* Control row: x 32 to 1088, y 368 to 530, seven columns, no individual borders. */
+.controls {
+	position: absolute;
+	top: 368px;
+	left: 32px;
+	z-index: 2;
+	display: flex;
+	width: 1056px;
+	height: 162px;
+}
+
+.col {
+	position: relative;
+	flex: none;
+	height: 100%;
+}
+
+.knob-slot {
+	position: absolute;
+	top: 0;
+	right: 0;
+	left: 0;
+	display: flex;
+	height: 112px;
+	align-items: center;
+	justify-content: center;
+}
+
+.knob-svg {
+	display: block;
+	width: var(--knob-size);
+	height: var(--knob-size);
+	cursor: ns-resize;
+	touch-action: none;
+	overflow: visible;
+}
+
+.knob-svg:focus-visible {
+	outline: 1px solid var(--amber);
+	outline-offset: 2px;
+}
+
+.knob-groove {
+	fill: none;
+	stroke: var(--panel-lo);
+	stroke-width: 3;
+	/* No dasharray on this element: non-scaling-stroke plus stroke-dasharray
+	   desynchronises the sweep from the pointer. See arcPath(). */
+	vector-effect: non-scaling-stroke;
+}
+
+.knob-arc {
+	fill: none;
+	stroke: var(--amber);
+	stroke-width: 3;
+	stroke-linecap: butt;
+	/* Safe here because arcPath() emits a real A-command, not a dash pattern. */
+	vector-effect: non-scaling-stroke;
+}
+
+.knob-tick {
+	stroke: var(--dim);
+	stroke-width: 1;
+	vector-effect: non-scaling-stroke;
+}
+
+.knob-cap {
+	fill: var(--knob-cap);
+	stroke: var(--bezel-in);
+	stroke-width: 1;
+	vector-effect: non-scaling-stroke;
+}
+
+.knob-pointer {
+	stroke: var(--ivory);
+	stroke-width: 2;
+	vector-effect: non-scaling-stroke;
+}
+
+/* Three silkscreen rows, shared by all seven columns. */
+.row {
+	position: absolute;
+	right: 0;
+	left: 0;
+	pointer-events: none;
+	text-align: center;
+}
+
+.readout {
+	top: 118px;
+	height: 14px;
+	font-family: 'IBM Plex Mono', ui-monospace, monospace;
+	font-size: 11px;
+	font-weight: 600;
+	font-variant-numeric: tabular-nums;
+	letter-spacing: 0.02em;
+	line-height: 14px;
+	text-indent: 0.02em;
+	color: var(--amber);
+}
+
+.readout-lg {
+	font-size: 12px;
+	line-height: 14px;
+}
+
+.main-label {
+	top: 134px;
+	height: 14px;
+	font-family: 'Archivo Narrow', sans-serif;
+	font-size: 12px;
+	font-weight: 700;
+	letter-spacing: 0.18em;
+	line-height: 14px;
+	text-indent: 0.18em;
+	color: var(--ivory);
+}
+
+.main-label.degraded {
+	font-size: 10px;
+	line-height: 14px;
+	color: var(--dim);
+}
+
+.sub-label {
+	top: 149px;
+	height: 11px;
+	font-family: 'Archivo Narrow', sans-serif;
+	font-size: 9px;
+	font-weight: 500;
+	letter-spacing: 0.14em;
+	line-height: 11px;
+	text-indent: 0.14em;
+	color: var(--dim);
+}
+
+/* Rectangular rocker switches, radius 0. The body is a recessed slot and
+   ::before is the raised cap; the cap sinks when pressed or engaged, so
+   switch position reads without any extra label. */
+.rocker {
+	position: relative;
+	padding: 0;
+	background: #191b1d;
+	border: 1px solid var(--bezel-out);
+	border-radius: 0;
+	box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.8);
+	cursor: pointer;
+}
+
+.rocker::before {
+	position: absolute;
+	inset: 3px;
+	background: linear-gradient(180deg, #4a4f52 0%, #34383a 52%, #2a2d2f 100%);
+	box-shadow:
+		inset 0 1px 0 rgba(255, 255, 255, 0.16),
+		0 1px 2px rgba(0, 0, 0, 0.6);
+	content: '';
+	transition:
+		transform 80ms ease,
+		box-shadow 80ms ease;
+}
+
+.rocker:active::before,
+.rocker.on::before {
+	transform: translateY(2px);
+	box-shadow:
+		inset 0 1px 0 rgba(255, 255, 255, 0.05),
+		inset 0 2px 5px rgba(0, 0, 0, 0.7);
+}
+
+.rocker:focus-visible {
+	outline: 1px solid var(--amber);
+	outline-offset: 2px;
+}
+
+.rocker:disabled {
+	cursor: default;
+}
+
+.rocker:disabled::before {
+	background: linear-gradient(180deg, #3a3e40 0%, #2b2e30 52%, #26292b 100%);
+}
+
+.rocker-lg {
+	width: 140px;
+	height: 56px;
+}
+
+.rocker-top {
+	width: 44px;
+	height: 22px;
+}
+
+.rocker .lamp {
+	position: absolute;
+	z-index: 1;
+	top: 50%;
+	left: 14px;
+	transform: translateY(-50%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.rocker,
+	.os-seg,
+	.os-seg::before,
+	.os-seg-label,
+	.view-btn {
+		transition: none;
+	}
+}
