@@ -43,6 +43,45 @@ struct SizeStore
     juce::PropertiesFile::Options options;
     std::unique_ptr<juce::PropertiesFile> file;
 };
+
+// Which HTML the WebView loads. The embedded zip served through the resource
+// provider is the default and stays the only choice for anything shipped.
+// While the UI is being developed, `bun run dev` in ui/ runs Vite with hot
+// reload, and pointing the WebView at it removes the build -> zip -> rebuild
+// cycle entirely. JUCE injects the native integration (slider/toggle/combo
+// relays, meter events) as a user script at document start, so it works for
+// the dev server URL exactly as it does for the embedded page - parameters
+// and meters keep running, only the HTML comes from Vite.
+//
+//   CLIP_DEV_UI_URL=<url>   load this URL (any build type; useful when a
+//                           Release plugin still wants the dev server)
+//   CLIP_DEV_UI_URL=off     always use the embedded zip, never probe
+//   unset, JUCE_DEBUG build probe 127.0.0.1:5173 and use it if it answers
+//   unset, release build    embedded zip
+juce::String getDevServerUrl()
+{
+    const auto overrideUrl =
+        juce::SystemStats::getEnvironmentVariable("CLIP_DEV_UI_URL", {});
+
+    if (overrideUrl.isNotEmpty())
+        return overrideUrl.equalsIgnoreCase("off") ? juce::String() : overrideUrl;
+
+#if JUCE_DEBUG
+    // A closed port refuses the connection immediately, so this only costs
+    // time when something actually holds 5173. The host must match the
+    // `server.host` pinned in ui/vite.config.ts.
+    constexpr int devServerPort = 5173;
+
+    juce::StreamingSocket probe;
+    if (probe.connect("127.0.0.1", devServerPort, 200))
+    {
+        probe.close();
+        return "http://127.0.0.1:" + juce::String(devServerPort) + "/";
+    }
+#endif
+
+    return {};
+}
 } // namespace
 
 CacophonicClipEditor::CacophonicClipEditor(CacophonicClipProcessor &processorToUse)
@@ -70,7 +109,20 @@ CacophonicClipEditor::CacophonicClipEditor(CacophonicClipProcessor &processorToU
           *processorRef.getParameters().getParameter(ParameterIDs::emphasisMode), emphasisModeRelay))
 {
     addAndMakeVisible(webView);
-    webView.goToURL(juce::WebBrowserComponent::getResourceProviderRoot());
+
+    // Dev server if one is running, the embedded zip otherwise. Only this one
+    // call decides it; nothing else in the editor cares where the HTML came
+    // from, so opening the editor again picks up whichever source exists now.
+    if (const auto devServerUrl = getDevServerUrl(); devServerUrl.isNotEmpty())
+    {
+        DBG("CacophonicClip: loading UI from dev server " + devServerUrl);
+        webView.goToURL(devServerUrl);
+    }
+    else
+    {
+        webView.goToURL(juce::WebBrowserComponent::getResourceProviderRoot());
+    }
+
     startTimerHz(60);
 
     // Open at the design size so the canvas starts at scale 1 with no bands.

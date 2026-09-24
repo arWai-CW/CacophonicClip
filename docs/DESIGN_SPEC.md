@@ -247,6 +247,21 @@ cmake --build build                        # COPY_PLUGIN_AFTER_BUILD
 - `ui/build/` 是舊 UI 殘留（`svelte.config.js` 現只輸出 `../Source/ui_dist`），建議刪除避免誤判。
 - `mime` 已支援 `woff2` / `svg` / `png`（`WebResourceProvider.h`）。
 
+### 8.1 開發流程（dev server + HMR）
+
+```bash
+cd ui && bun run dev     # vite dev, http://127.0.0.1:5173
+```
+
+- `Source/PluginEditor.cpp` 的 `getDevServerUrl()` 在開編輯器時 probe `127.0.0.1:5173`（僅 `JUCE_DEBUG` build）：有 listener 就 `goToURL("http://127.0.0.1:5173/")`，否則照舊 `getResourceProviderRoot()`。所以 dev server 一開就是 HMR、一關就回內嵌 zip，**C++ 不用重 build**，改完存檔即時生效。
+- `ui/vite.config.ts` 鎖 `server.host = 127.0.0.1`、`server.port = 5173`、`strictPort: true`，跟 probe 對齊，port 不會漂。
+- native integration（slider / toggle / combo relay、`meterData`）是 document-start user script 注入，與載入來源無關，dev server 下參數與錶照常運作。
+- `ui/src/routes/+layout.ts` 設 `ssr = false`：不設的話 dev server 會做 SSR，`@juce-framework/webview` 在 module 層讀 `window.__JUCE__`，直接 `window is not defined` → 整頁 500。
+- 環境變數：`CLIP_DEV_UI_URL=<url>` 強制走指定 URL（任何 build type，例如 Release 也要 dev server 時）；`CLIP_DEV_UI_URL=off` 強制內嵌 zip、跳過 probe。
+- 純瀏覽器開 `http://127.0.0.1:5173` 只會拿到 mock（`check_native_interop.ts`），沒有參數也沒有錶資料，只適合看版面。
+- 開發期編輯器第一次打開可能出現 3 條 `juce_WebBrowserComponent.cpp:178` assertion，那是頁面還沒載完就送出第一筆 meter event，載完就不再出現，與 dev server 無關。
+- 交付仍走 §8：`bun run build` → zip → `cmake --build build`。
+
 ## 9. Pre-Flight
 
 - 零 em-dash / en-dash（日期範圍用連字號），零中點 `·`
