@@ -1,0 +1,14 @@
+.DS_Store
+build/
+
+# Agent tooling state
+.agents/
+.playwright-mcp/
+skills-lock.json
+
+# UI build output (docs §8: rebuild with `bun run build` + `zip`)
+Source/ui_dist/
+Source/UIResources.zip
+ui/.svelte-kit/
+ui/build/
+ui/node_modules/
