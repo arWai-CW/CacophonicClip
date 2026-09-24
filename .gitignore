@@ -12,3 +12,6 @@ Source/UIResources.zip
 ui/.svelte-kit/
 ui/build/
 ui/node_modules/
+
+# Reference artwork only, never bundled into the plugin
+ui/static/filmstrips/
