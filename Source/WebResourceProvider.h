@@ -67,6 +67,8 @@ private:
         if (extension == "json") return "application/json";
         if (extension == "svg") return "image/svg+xml";
         if (extension == "png") return "image/png";
+        if (extension == "jpg" || extension == "jpeg") return "image/jpeg";
+        if (extension == "webp") return "image/webp";
         if (extension == "ico") return "image/x-icon";
         if (extension == "woff2") return "font/woff2";
 

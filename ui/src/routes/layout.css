@@ -128,6 +128,37 @@ button {
 	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23g)'/%3E%3C/svg%3E");
 }
 
+/* Photographed metal over the procedural layers. Grayscale source, so the
+   blend carries luminance only: soft-light bends the panel's own colour
+   around the photo's highlights and scratches without lifting it to grey.
+   Kept low enough that the silkscreen still reads first. */
+.texture-photo {
+	z-index: 1;
+	background-image: url('/texture.jpg');
+	background-position: center;
+	background-size: cover;
+	mix-blend-mode: soft-light;
+	opacity: 0.55;
+}
+
+/* Optical pass: one layer over everything, warm light pooling out of the
+   display and a corner vignette for the panel curving away from the light.
+   No backdrop-filter here on purpose. The panel is a backdrop root (it is
+   transformed to scale), so a backdrop filter would force the whole 1120x560
+   panel to re-filter whenever *any* element changes state - a button going
+   pressed, a lamp going lit. Measured in Chromium that cost a 6ms overrun,
+   which reads as a one-frame flicker through the display. Gradients repaint
+   the same pixels for a fraction of the price. */
+.lens {
+	position: absolute;
+	inset: 0;
+	z-index: 9;
+	pointer-events: none;
+	background:
+		radial-gradient(110% 80% at 50% 38%, rgba(224, 163, 60, 0.1), rgba(224, 163, 60, 0) 64%),
+		radial-gradient(130% 110% at 50% 45%, rgba(0, 0, 0, 0) 55%, rgba(0, 0, 0, 0.3) 100%);
+}
+
 /* Exactly two engraved seams for the whole site. */
 .seam {
 	position: absolute;
@@ -342,6 +373,10 @@ button {
 .os-seg-label {
 	position: relative;
 	z-index: 1;
+	/* Inline boxes ignore transform, so without this the cap drops and the
+	   lettering stays where it was - a button that looks pressed while its
+	   label hangs in the air. */
+	display: inline-block;
 	transition: transform 80ms ease;
 }
 
@@ -381,12 +416,20 @@ button {
 
 .lamp.lit {
 	background: var(--amber);
-	box-shadow: 0 0 6px rgba(224, 163, 60, 0.75);
+	/* Three rings: the hot core, the halo, and the light thrown onto the panel
+	   around it. */
+	box-shadow:
+		0 0 4px rgba(224, 163, 60, 0.95),
+		0 0 10px rgba(224, 163, 60, 0.5),
+		0 0 20px rgba(224, 163, 60, 0.22);
 }
 
 .lamp-over.lit {
 	background: var(--over);
-	box-shadow: 0 0 6px rgba(242, 84, 60, 0.8);
+	box-shadow:
+		0 0 4px rgba(242, 84, 60, 0.95),
+		0 0 10px rgba(242, 84, 60, 0.5),
+		0 0 20px rgba(242, 84, 60, 0.25);
 }
 
 /* Display window: x 32 to 1088, y 64 to 340. */
@@ -403,7 +446,54 @@ button {
 		inset 0 2px 6px rgba(0, 0, 0, 0.7),
 		inset 0 0 0 1px var(--bezel-in),
 		0 0 0 1px var(--bezel-out),
-		0 1px 0 rgba(255, 255, 255, 0.06);
+		0 1px 0 rgba(255, 255, 255, 0.06),
+		0 0 20px rgba(224, 163, 60, 0.09);
+}
+
+/* CRT face, over the picture only. A tube dims toward a curved edge, so the
+   falloff is an ellipse wider than it is tall and the glass carries a soft
+   black ring where the bezel curves away. The first layer is the warm pool the
+   tube throws back into the middle of its own picture.
+
+   Two things ride ABOVE this layer instead of under it, because a darkened
+   WAVE/EQ tab and a darkened meter segment are both unreadable rather than
+   atmospheric - they are instruments, not picture. See .view-switch and
+   .ladder-col. */
+.window::before {
+	position: absolute;
+	inset: 8px 10px;
+	content: '';
+	pointer-events: none;
+	box-shadow: inset 0 0 20px 3px rgba(0, 0, 0, 0.42);
+	background:
+		radial-gradient(58% 150% at 50% 46%, rgba(224, 163, 60, 0.07), transparent 72%),
+		radial-gradient(66% 150% at 50% 50%, rgba(0, 0, 0, 0) 58%, rgba(0, 0, 0, 0.3) 100%),
+		radial-gradient(36% 120% at 0% 0%, rgba(0, 0, 0, 0.34), transparent 72%),
+		radial-gradient(36% 120% at 100% 0%, rgba(0, 0, 0, 0.34), transparent 72%),
+		radial-gradient(36% 120% at 0% 100%, rgba(0, 0, 0, 0.34), transparent 72%),
+		radial-gradient(36% 120% at 100% 100%, rgba(0, 0, 0, 0.34), transparent 72%);
+}
+
+/* Above the CRT falloff, so the tab labels and the meter segments keep their
+   full contrast. `position: relative` keeps both in normal flow. */
+.view-switch,
+.ladder-col {
+	position: relative;
+	z-index: 1;
+}
+
+/* Light retro-terminal mask over the glass. Kept faint on purpose: the panel
+   is drawn at a fractional scale, so a 1px rule every 3px is resampled on
+   every repaint and anything heavier reads as shimmer, not as a screen. The
+   warmth is meant to come from the glow, not from the grid. */
+.window::after {
+	position: absolute;
+	inset: 8px 10px;
+	content: '';
+	pointer-events: none;
+	background-image:
+		repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.06) 0 1px, transparent 1px 3px),
+		repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.05) 0 1px, transparent 1px 3px);
 }
 
 .win-body {
@@ -437,10 +527,16 @@ button {
 
 .ladder i.on {
 	background: var(--amber);
+	box-shadow:
+		0 0 4px rgba(224, 163, 60, 0.7),
+		0 0 9px rgba(224, 163, 60, 0.32);
 }
 
 .ladder i.on.hot {
 	background: var(--over);
+	box-shadow:
+		0 0 4px rgba(242, 84, 60, 0.8),
+		0 0 9px rgba(242, 84, 60, 0.38);
 }
 
 .win-center {
@@ -492,6 +588,7 @@ button {
 
 .view-btn.active {
 	color: var(--amber);
+	text-shadow: 0 0 7px rgba(224, 163, 60, 0.7);
 }
 
 .view-btn:hover,
@@ -521,14 +618,22 @@ button {
 	font-weight: 500;
 	letter-spacing: 0.1em;
 	color: var(--dim);
+	/* Phosphor text: light comes off the characters, not just out of them. */
+	text-shadow: 0 0 5px rgba(232, 227, 214, 0.22);
 }
 
 .over-label.lit {
 	color: var(--over);
+	text-shadow:
+		0 0 5px rgba(242, 84, 60, 0.7),
+		0 0 12px rgba(242, 84, 60, 0.3);
 }
 
 .ceiling-label {
 	color: var(--amber);
+	text-shadow:
+		0 0 5px rgba(224, 163, 60, 0.55),
+		0 0 12px rgba(224, 163, 60, 0.25);
 }
 
 .curve-svg {
@@ -549,6 +654,7 @@ button {
 	stroke-width: 1;
 	stroke-dasharray: 4 4;
 	opacity: 0.5;
+	filter: drop-shadow(0 0 3px rgba(224, 163, 60, 0.45));
 }
 
 .curve-line {
@@ -556,6 +662,9 @@ button {
 	stroke: var(--amber);
 	stroke-width: 2;
 	vector-effect: non-scaling-stroke;
+	/* Phosphor bloom: a tight halo plus a wide one. Two shadows, not more:
+	   the trace repaints whenever the curve moves. */
+	filter: drop-shadow(0 0 2px rgba(224, 163, 60, 0.9)) drop-shadow(0 0 8px rgba(224, 163, 60, 0.45));
 }
 
 /* EQ view: de-emphasis, the mirror of the amber pre-EQ trace. Dashes stay in
@@ -566,6 +675,7 @@ button {
 	stroke-width: 1;
 	stroke-dasharray: 4 4;
 	opacity: 0.5;
+	filter: drop-shadow(0 0 2px rgba(167, 171, 164, 0.4));
 }
 
 .divider {
@@ -585,11 +695,13 @@ button {
 	stroke-width: 1;
 	opacity: 0.55;
 	vector-effect: non-scaling-stroke;
+	filter: drop-shadow(0 0 2px rgba(167, 171, 164, 0.45));
 }
 
 .wave-output-fill {
 	fill: var(--amber);
-	opacity: 0.3;
+	opacity: 0.32;
+	filter: drop-shadow(0 0 6px rgba(224, 163, 60, 0.5));
 }
 
 .wave-output-stroke {
@@ -597,11 +709,14 @@ button {
 	stroke: var(--amber);
 	stroke-width: 1;
 	vector-effect: non-scaling-stroke;
+	filter: drop-shadow(0 0 2px rgba(224, 163, 60, 0.95))
+		drop-shadow(0 0 7px rgba(224, 163, 60, 0.45));
 }
 
 .wave-clipped {
 	fill: var(--over);
 	opacity: 0.85;
+	filter: drop-shadow(0 0 3px rgba(242, 84, 60, 0.75)) drop-shadow(0 0 8px rgba(242, 84, 60, 0.35));
 }
 
 /* Control row: x 32 to 1088, y 368 to 530, seven columns, no individual borders. */
@@ -662,6 +777,8 @@ button {
 	stroke-linecap: butt;
 	/* Safe here because arcPath() emits a real A-command, not a dash pattern. */
 	vector-effect: non-scaling-stroke;
+	/* Same light language as the display: the indicator emits, it is not painted. */
+	filter: drop-shadow(0 0 3px rgba(224, 163, 60, 0.45));
 }
 
 .knob-tick {
@@ -677,10 +794,22 @@ button {
 	vector-effect: non-scaling-stroke;
 }
 
-.knob-pointer {
-	stroke: var(--ivory);
-	stroke-width: 2;
-	vector-effect: non-scaling-stroke;
+/* Skinned knob face: one square frame cut out of a filmstrip sheet, sized to
+   the ratio set in filmstripStyle() and centred on the cap. The strip draws
+   its own pointer, so nothing is layered on top of it. Not interactive: the
+   SVG below keeps every pointer and focus handler, and the cap stays visible
+   until the strip has decoded. The sheet geometry (background-size and
+   background-position) is emitted by filmstripStyle() because it depends on
+   how many columns that particular skin is tiled into. */
+.knob-face {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	width: var(--knob-face, 0px);
+	height: var(--knob-face, 0px);
+	transform: translate(-50%, -50%);
+	background-repeat: no-repeat;
+	pointer-events: none;
 }
 
 /* Three silkscreen rows, shared by all seven columns. */
@@ -703,6 +832,8 @@ button {
 	line-height: 14px;
 	text-indent: 0.02em;
 	color: var(--amber);
+	/* Readout, not silkscreen: it lights up, so it bleeds a little. */
+	text-shadow: 0 0 6px rgba(224, 163, 60, 0.3);
 }
 
 .readout-lg {

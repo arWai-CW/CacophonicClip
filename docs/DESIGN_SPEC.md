@@ -150,10 +150,11 @@ Dials：`DESIGN_VARIANCE: 4`、`MOTION_INTENSITY: 2`、`VISUAL_DENSITY: 5`。
 ### 4.3 旋鈕規格
 
 - 刻度弧：`270°`（`-135°` … `+135°`），3px stroke，溝槽色 `--panel-lo`
-- value arc：3px `--amber`，`stroke-linecap: butt`
+- value arc：3px `--amber`，`stroke-linecap: butt` ＋ `drop-shadow` glow
 - 外圈刻度：9 條 1px 放射線 `--dim`（假設 3，可移除）
-- 帽：圓形 `fill: --knob-cap`，半徑 `0.72 × R`，1px `--bezel-in` 內緣
-- pointer：2px `--ivory`，中心至 `0.85 R`
+- 帽：圓形 `fill: --knob-cap`，半徑 `0.36 × viewBox`，1px `--bezel-in` 內緣，**只當 filmstrip 解碼前的 placeholder**
+- 面板：`.knob-face` 貼在 SVG 之上（`pointer-events: none`），直徑 `0.84 × slot`，半徑落在 viewBox r42，貼住溝槽內緣（r43.5）、不壓到刻度（r47.5…50）
+- **沒有 vector pointer**：指針由 skin 自帶，兩者不可疊加
 - 無中心讀數（讀數在下方固定行）
 
 ### 4.4 開關規格
@@ -188,7 +189,33 @@ Dials：`DESIGN_VARIANCE: 4`、`MOTION_INTENSITY: 2`、`VISUAL_DENSITY: 5`。
 - bezel：`inset 0 2px 6px rgba(0,0,0,.7)` ＋ `0 1px 0 rgba(255,255,255,.06)`
 - 螺絲：`radial-gradient` 圓 ＋ 1px 十字槽，**四顆旋轉角各不同**避免機械重複
 
-無 raster 圖、無 CDN、無 div 假截圖、無手繪裝飾 SVG、無 icon（面板零 icon 需求）。
+無手繪裝飾 SVG、無 icon（面板零 icon 需求）。
+
+### 6.1 Raster 素材（本節取代本節原本的「無 raster 圖」限制）
+
+面板有兩類 raster，都是「來源」與「進包」分開存放：
+
+| 素材 | 來源（入庫、不進包） | 進包（`ui/static/`，進 zip） |
+|---|---|---|
+| knob filmstrip | `docs/artwork/filmstrips/*.png`（HISE 原始 PNG） | `filmstrips/*.webp` |
+| 金屬質感 | `docs/artwork/texture.jpg`（4032×3024 原圖） | `texture.jpg`（1440 寬 q82） |
+
+- **WebP 是硬限制下的選擇**：WebP 任何一邊不得超過 16383px，而 big skin 128 幀直排是 180×23040，超限。解法是橫向 2 欄排成 360×11520（64 列），解析度完全不減。`filmstripStyle()` 因此要同時算 x/y 兩軸：`frame % columns` 與 `floor(frame / columns)`。
+- `small` skin 只有 70×8960，單欄直接放得下。
+- 打包後 6.6MB PNG + 1.35MB JPG 變成 0.78MB（big 493KB / small 107KB / texture 181KB）。
+- `getMimeType()` 必須認得 `jpg` 與 `webp`，否則 WebKit 會因為 `application/octet-stream` 拒載圖片。
+
+### 6.2 顯示窗光學（CRT）
+
+`.window` 上有兩層 pseudo-element，順序 `::before` 暗角 → `::after` 網點：
+
+- `::before` CRT 暗角：橢圓主衰減 `66%×150%`（0→0.3）＋ 四角各一條曲線衰減（0.34，36%×120%）＋ `inset 0 0 20px 3px rgba(0,0,0,.42)` 玻璃黑邊 ＋ 中央暖光池 `rgba(224,163,60,.07)`
+- `::after` 網點：掃描線 `1px/3px @6%` ＋ 垂直光柵 `1px/3px @5%`，兩個值都別再往上加
+- **`.view-switch` 與 `.ladder-col` 用 `position: relative; z-index: 1` 浮在暗角之上**：被壓暗的 WAVE/EQ 標籤與 meter 段不是「有氣氛」，是「看不清」
+- 暖度來自 glow 而非網點：曲線 `drop-shadow(0 0 2px .9)` ＋ `(0 0 8px .45)`、波形輸出線 `.95` / `.45`、`.lens` 暖光池 `rgba(224,163,60,.1)`、`.window` 外框 `0 0 20px rgba(224,163,60,.09)`
+- **整個面板禁止 `backdrop-filter`**：`.panel` 有 `transform: scale()`，因此它是 backdrop root。任何一處 class 變動（按鍵壓下、燈亮）都會逼整面 1120×560 重算，實測掉 6ms 的幀，視覺上就是按一下閃一幀。需要柔化效果就改用 gradient。
+- 面板縮放常為非整數，1px 圖案每次重繪都在重採樣，網格值越重閃得越明顯
+
 
 ## 7. 契約（UI ↔ Engine 交接）
 
@@ -245,7 +272,7 @@ cmake --build build                        # COPY_PLUGIN_AFTER_BUILD
 
 - **`Source/UIResources.zip` 不會自動重建**，`WebResourceProvider.h` 讀的是 zip，兩步必須都做。
 - `ui/build/` 是舊 UI 殘留（`svelte.config.js` 現只輸出 `../Source/ui_dist`），建議刪除避免誤判。
-- `mime` 已支援 `woff2` / `svg` / `png`（`WebResourceProvider.h`）。
+- `mime` 已支援 `woff2` / `svg` / `png` / `jpg` / `webp`（`WebResourceProvider.h`）。
 
 ### 8.1 開發流程（dev server + HMR）
 

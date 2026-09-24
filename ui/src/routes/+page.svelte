@@ -4,6 +4,7 @@
 	import type { Biquad } from '$lib/emphasisEq';
 
 	type KnobName = 'trim' | 'drive' | 'mix' | 'shape' | 'emphasis' | 'asym';
+	type FilmstripName = 'big' | 'small';
 	interface Column {
 		kind: 'knob' | 'switch';
 		name: KnobName | null;
@@ -12,7 +13,31 @@
 		width: number;
 		size: number;
 		degraded?: boolean;
+		film?: FilmstripName;
 	}
+
+	// Knob skins: 128 square frames spanning 300deg of travel, frame 0 at
+	// -150deg and the last frame at +150deg (clockwise from 12 o'clock),
+	// measured off the artwork's own pointer.
+	//
+	// `diameter` is the drawn knob circle as a fraction of its own frame, so
+	// each skin scales onto the same slot regardless of its own canvas.
+	// `columns` is how the frames are laid out in the sheet: the big skin is
+	// tiled two across because WebP refuses any image over 16383px on an edge
+	// and its 128 frames stacked straight down are 23040px tall.
+	const filmstrips: Record<FilmstripName, { src: string; diameter: number; columns: number }> = {
+		big: { src: '/filmstrips/hise_knob_big.webp', diameter: 1, columns: 2 },
+		small: { src: '/filmstrips/hise_knob_small.webp', diameter: 60 / 70, columns: 1 }
+	};
+	const filmstripFrames = 128;
+	const filmstripStartDeg = -150;
+	const filmstripSweepDeg = 300;
+	// How much of the slot the skinned artwork spans. The vector cap was 0.72,
+	// which left the art floating in the middle of the groove; 0.84 puts its
+	// edge (r 42 of 100) just inside the groove (inner edge r 43.5) and clear
+	// of the ticks (r 47.5..50), so the knob hugs its own indicator. The strips
+	// each carry their own pointer, so no vector pointer is drawn on top.
+	const knobFaceRatio = 0.84;
 
 	const trimState = getSliderState('trim');
 	const driveState = getSliderState('drive');
@@ -67,17 +92,42 @@
 	const emphasisModeState = resolveEmphasisModeState();
 
 	const columns: Column[] = [
-		{ kind: 'knob', name: 'drive', label: 'DRIVE', sub: 'CLIPPING', width: 180, size: 112 },
+		{
+			kind: 'knob',
+			name: 'drive',
+			label: 'DRIVE',
+			sub: 'CLIPPING',
+			width: 180,
+			size: 112,
+			film: 'big'
+		},
 		{ kind: 'switch', name: null, label: '2x', sub: 'INPUT GAIN', width: 156, size: 0 },
-		{ kind: 'knob', name: 'mix', label: 'MIX', sub: 'DRY / WET', width: 144, size: 92 },
-		{ kind: 'knob', name: 'shape', label: 'SHAPE', sub: 'SOFT / HARD', width: 144, size: 92 },
+		{
+			kind: 'knob',
+			name: 'mix',
+			label: 'MIX',
+			sub: 'DRY / WET',
+			width: 144,
+			size: 92,
+			film: 'small'
+		},
+		{
+			kind: 'knob',
+			name: 'shape',
+			label: 'SHAPE',
+			sub: 'SOFT / HARD',
+			width: 144,
+			size: 92,
+			film: 'small'
+		},
 		{
 			kind: 'knob',
 			name: 'emphasis',
 			label: 'EMPHASIS',
 			sub: 'PRE-EQ',
 			width: 144,
-			size: 92
+			size: 92,
+			film: 'small'
 		},
 		{
 			kind: 'knob',
@@ -85,7 +135,8 @@
 			label: 'ASYMMETRY',
 			sub: 'EVEN / ODD',
 			width: 144,
-			size: 92
+			size: 92,
+			film: 'small'
 		},
 		{
 			kind: 'knob',
@@ -94,6 +145,7 @@
 			sub: 'OUTPUT',
 			width: 144,
 			size: 92,
+			film: 'small',
 			degraded: true
 		}
 	];
@@ -486,6 +538,29 @@
 		return -135 + getVisualNormalised(name) * 270;
 	}
 
+	// Skin the knob with a filmstrip frame. The strip travels 300deg while the
+	// groove, ticks and arc travel 270deg, so the arc angle is mapped onto the
+	// strip rather than the raw value: the drawn pointer then lands on the same
+	// tick as the vector pointer did (frames 6..121 of 128).
+	function filmstripStyle(col: Column) {
+		if (!col.name || !col.film) return '';
+		const strip = filmstrips[col.film];
+		const angle = getVisualAngle(col.name);
+		const raw = ((angle - filmstripStartDeg) / filmstripSweepDeg) * (filmstripFrames - 1);
+		const frame = Math.max(0, Math.min(filmstripFrames - 1, Math.round(raw)));
+		// The sheet is a grid: frame k sits at column k % columns, row
+		// floor(k / columns). CSS slides a background with percentages of the
+		// *overflow*, not of the sheet, so cell (c, r) lands at c / (columns-1)
+		// and r / (rows-1) of the way across. One column has no overflow
+		// horizontally, so its x is always 0.
+		const columns = strip.columns;
+		const rows = filmstripFrames / columns;
+		const x = columns > 1 ? ((frame % columns) / (columns - 1)) * 100 : 0;
+		const y = (Math.floor(frame / columns) / (rows - 1)) * 100;
+		const face = (col.size * knobFaceRatio) / strip.diameter;
+		return `--knob-face: ${face.toFixed(2)}px; background-image: url(${strip.src}); background-size: ${columns * 100}% ${rows * 100}%; background-position: ${x.toFixed(3)}% ${y.toFixed(3)}%`;
+	}
+
 	function ariaRange(name: KnobName) {
 		if (name === 'drive') return { min: 0, max: 24, now: driveValue };
 		if (name === 'trim') return { min: -12, max: 0, now: trimValue };
@@ -632,6 +707,13 @@
 	function selectView(next: 'wave' | 'eq') {
 		view = next;
 	}
+	// The WebView builds its own Reload / Inspect menu on right click. Nothing
+	// in this panel has a right-click action, and "Reload" in that menu throws
+	// the whole UI away mid-adjust - so the menu never gets a chance to open.
+	function dismissContextMenu(event: MouseEvent) {
+		event.preventDefault();
+		event.stopPropagation();
+	}
 </script>
 
 <svelte:window
@@ -639,12 +721,17 @@
 	onpointermove={moveKnob}
 	onpointerup={endKnob}
 	onpointercancel={endKnob}
+	oncontextmenu={dismissContextMenu}
 />
 
 <div class="stage">
 	<main class="panel" style={`transform: scale(${canvasScale})`}>
 		<div class="texture texture-brush"></div>
 		<div class="texture texture-grain"></div>
+		<!-- Photographic brushed-metal pass over the procedural layers: soft-light
+		     so the photo's own light-to-dark falloff reads as reflected light
+		     rather than as a picture pasted on the panel. -->
+		<div class="texture texture-photo"></div>
 
 		<i class="screw screw-tl"></i>
 		<i class="screw screw-tr"></i>
@@ -825,10 +912,11 @@
 									<line class="knob-tick" {...tickLine(angle)} />
 								{/each}
 								<circle class="knob-cap" cx="50" cy="50" r="36" />
-								<g transform={`rotate(${getVisualAngle(col.name as KnobName)} 50 50)`}>
-									<line class="knob-pointer" x1="50" y1="50" x2="50" y2="7.5" />
-								</g>
 							</svg>
+							<!-- Skinned face laid over the vector cap. The filmstrip carries
+							     its own pointer, so no vector pointer is drawn; the cap
+							     stays underneath as the placeholder until the strip decodes. -->
+							<div class="knob-face" style={filmstripStyle(col)}></div>
 						</div>
 					{:else}
 						<div class="knob-slot">
@@ -853,5 +941,11 @@
 				</div>
 			{/each}
 		</div>
+
+		<!-- Optical pass over the whole panel: a 0.35px backdrop blur, a warm
+		     bloom from the display and a corner vignette. It sits above everything
+		     and never takes pointer events; its job is to take the vector-crisp
+		     edge off the artwork so the panel reads as photographed, not drawn. -->
+		<div class="lens"></div>
 	</main>
 </div>
