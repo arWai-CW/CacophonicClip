@@ -178,7 +178,7 @@ void CacophonicClipProcessor::processBlock(juce::AudioBuffer<float> &buffer,
             auto* delayed = bypassDelayScratch.getWritePointer(channel);
 
             for (int sample = 0; sample < firstSegment; ++sample)
-                ring[static_cast<size_t>(bypassDelayWrite + sample)] = input[sample];
+                ring[static_cast<size_t>(bypassDelayWrite) + static_cast<size_t>(sample)] = input[sample];
             for (int sample = firstSegment; sample < numSamples; ++sample)
                 ring[static_cast<size_t>(sample - firstSegment)] = input[sample];
 
@@ -228,7 +228,7 @@ void CacophonicClipProcessor::processBlock(juce::AudioBuffer<float> &buffer,
                 // Exact copy at dryMix == 1 so bypassed input and output match bit for bit.
                 buffer.setSample(channel, sample,
                                  dryMix >= 1.0f ? dry
-                                                : processed + dryMix * (dry - processed));
+                                                : processed + (dryMix * (dry - processed)));
             }
         }
     }

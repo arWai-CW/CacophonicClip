@@ -75,8 +75,8 @@ public:
     void getStateInformation(juce::MemoryBlock &destData) override;
     void setStateInformation(const void *data, int sizeInBytes) override;
 
-    juce::AudioProcessorValueTreeState &getParameters() noexcept { return parameters; }
-    const juce::AudioProcessorValueTreeState &getParameters() const noexcept { return parameters; }
+    juce::AudioProcessorValueTreeState &getAPVTS() noexcept { return parameters; }
+    const juce::AudioProcessorValueTreeState &getAPVTS() const noexcept { return parameters; }
     MeterSnapshot getMeterSnapshot() const noexcept;
 
 private:

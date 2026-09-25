@@ -88,25 +88,25 @@ CacophonicClipEditor::CacophonicClipEditor(CacophonicClipProcessor &processorToU
     : AudioProcessorEditor(&processorToUse),
       processorRef(processorToUse),
       webTrimAttachment(std::make_unique<juce::WebSliderParameterAttachment>(
-          *processorRef.getParameters().getParameter(ParameterIDs::trim), trimRelay)),
+          *processorRef.getAPVTS().getParameter(ParameterIDs::trim), trimRelay)),
       webDriveAttachment(std::make_unique<juce::WebSliderParameterAttachment>(
-          *processorRef.getParameters().getParameter(ParameterIDs::drive), driveRelay)),
+          *processorRef.getAPVTS().getParameter(ParameterIDs::drive), driveRelay)),
       webMixAttachment(std::make_unique<juce::WebSliderParameterAttachment>(
-          *processorRef.getParameters().getParameter(ParameterIDs::mix), mixRelay)),
+          *processorRef.getAPVTS().getParameter(ParameterIDs::mix), mixRelay)),
       webShapeAttachment(std::make_unique<juce::WebSliderParameterAttachment>(
-          *processorRef.getParameters().getParameter(ParameterIDs::shape), shapeRelay)),
+          *processorRef.getAPVTS().getParameter(ParameterIDs::shape), shapeRelay)),
       webEmphasisAttachment(std::make_unique<juce::WebSliderParameterAttachment>(
-          *processorRef.getParameters().getParameter(ParameterIDs::emphasis), emphasisRelay)),
+          *processorRef.getAPVTS().getParameter(ParameterIDs::emphasis), emphasisRelay)),
       webAsymAttachment(std::make_unique<juce::WebSliderParameterAttachment>(
-          *processorRef.getParameters().getParameter(ParameterIDs::asym), asymRelay)),
+          *processorRef.getAPVTS().getParameter(ParameterIDs::asym), asymRelay)),
       webBoostAttachment(std::make_unique<juce::WebToggleButtonParameterAttachment>(
-          *processorRef.getParameters().getParameter(ParameterIDs::boost), boostRelay)),
+          *processorRef.getAPVTS().getParameter(ParameterIDs::boost), boostRelay)),
       webBypassAttachment(std::make_unique<juce::WebToggleButtonParameterAttachment>(
-          *processorRef.getParameters().getParameter(ParameterIDs::bypass), bypassRelay)),
+          *processorRef.getAPVTS().getParameter(ParameterIDs::bypass), bypassRelay)),
       webOversamplingAttachment(std::make_unique<juce::WebComboBoxParameterAttachment>(
-          *processorRef.getParameters().getParameter(ParameterIDs::oversampling), oversamplingRelay)),
+          *processorRef.getAPVTS().getParameter(ParameterIDs::oversampling), oversamplingRelay)),
       webEmphasisModeAttachment(std::make_unique<juce::WebComboBoxParameterAttachment>(
-          *processorRef.getParameters().getParameter(ParameterIDs::emphasisMode), emphasisModeRelay))
+          *processorRef.getAPVTS().getParameter(ParameterIDs::emphasisMode), emphasisModeRelay))
 {
     addAndMakeVisible(webView);
 

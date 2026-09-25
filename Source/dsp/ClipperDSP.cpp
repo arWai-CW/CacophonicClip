@@ -56,7 +56,7 @@ void ClipperDSP::prepare (double sampleRate, int maximumBlockSize, int numChanne
             true,   // isMaxQuality: -90 dB up / -75 dB down stopbands
             true);  // useIntegerLatency
         oversampler->initProcessing (static_cast<size_t> (preparedBlockSize));
-        oversampler->reset();
+        (*oversampler).reset();
 
         const auto oversampledRate = static_cast<float> (
             sampleRate * static_cast<double> (oversamplingFactors[static_cast<size_t> (index)]));
@@ -123,9 +123,9 @@ void ClipperDSP::reset()
     emphasisFadeRemaining = 0;
     emphasisFadeStep = 0.0f;
 
-    for (auto& oversampler : oversamplers)
+    for (const auto& oversampler : oversamplers)
         if (oversampler != nullptr)
-            oversampler->reset();
+            (*oversampler).reset();
 }
 
 int ClipperDSP::getLatencySamples (int index) const
@@ -158,7 +158,7 @@ float ClipperDSP::clipFn (float value, float shape) noexcept
     const auto hardClipped = juce::jlimit (-1.0f, 1.0f, value);
     // Morph between tanh (shape = 0) and hard clip (shape = 1). Both curves are
     // monotonic, so the blend stays monotonic too.
-    return softClipped + shape * (hardClipped - softClipped);
+    return softClipped + (shape * (hardClipped - softClipped));
 }
 
 ClipperDSP::BiquadCoefficients ClipperDSP::normalise (const std::array<float, 6>& raw) noexcept
@@ -188,11 +188,11 @@ float ClipperDSP::processStage (BiquadState& state, float input,
 {
     // Direct form 1 with a0 already folded in (spec 12.3):
     // y = b0*x + b1*x1 + b2*x2 - a1*y1 - a2*y2.
-    const auto output = coefficients[0] * input
-                      + coefficients[1] * state.x1
-                      + coefficients[2] * state.x2
-                      - coefficients[4] * state.y1
-                      - coefficients[5] * state.y2;
+    const auto output = (coefficients[0] * input)
+                      + (coefficients[1] * state.x1)
+                      + (coefficients[2] * state.x2)
+                      - (coefficients[4] * state.y1)
+                      - (coefficients[5] * state.y2);
     state.x2 = state.x1;
     state.x1 = input;
     state.y2 = state.y1;
@@ -204,8 +204,7 @@ void ClipperDSP::clearStage (std::vector<BiquadState>& stage) noexcept
 {
     // Spec 12.2: a skipped shelf / bell stage keeps its state cleared, so
     // re-enabling it always restarts from a zeroed recursion.
-    for (auto& state : stage)
-        state = BiquadState {};
+    std::fill (stage.begin(), stage.end(), BiquadState {});
 }
 
 float ClipperDSP::processPreChain (ModeBank& bank, int mode, int channel, float input,
@@ -279,9 +278,9 @@ void ClipperDSP::beginEmphasisFade (int mode) noexcept
 float ClipperDSP::processAcCouple (int channel, float input) noexcept
 {
     const auto index = static_cast<size_t> (channel);
-    const auto output = acB0 * input
-                      + acB1 * acX1[index]
-                      - acA1 * acY1[index];
+    const auto output = (acB0 * input)
+                      + (acB1 * acX1[index])
+                      - (acA1 * acY1[index]);
     acX1[index] = input;
     acY1[index] = output;
     return output;
@@ -411,7 +410,7 @@ void ClipperDSP::process (juce::AudioBuffer<float>& buffer,
                 }
                 else
                 {
-                    const auto shelfHz = kTapeShelfMinHz + kTapeShelfSpanHz * emphasisAmount;
+                    const auto shelfHz = kTapeShelfMinHz + (kTapeShelfSpanHz * emphasisAmount);
                     dynamic.tapePre = normalise (ArrayCoefficients::makeHighShelf (
                         oversampledRate, shelfHz, kShelfQ,
                         juce::Decibels::decibelsToGain (gainDb)));
@@ -429,8 +428,8 @@ void ClipperDSP::process (juce::AudioBuffer<float>& buffer,
                 }
                 else
                 {
-                    const auto bellHz = kTubeBellMinHz + kTubeBellSpanHz * emphasisAmount;
-                    const auto bellQ = kTubeBellQMin + kTubeBellQSpan * emphasisAmount;
+                    const auto bellHz = kTubeBellMinHz + (kTubeBellSpanHz * emphasisAmount);
+                    const auto bellQ = kTubeBellQMin + (kTubeBellQSpan * emphasisAmount);
                     dynamic.tubePre = normalise (ArrayCoefficients::makePeakFilter (
                         oversampledRate, bellHz, bellQ,
                         juce::Decibels::decibelsToGain (gainDb)));
@@ -477,7 +476,7 @@ void ClipperDSP::process (juce::AudioBuffer<float>& buffer,
                     wet += fade * (fadedPost - wet);
                 }
 
-                data[oversampledSample] = up + mix * (wet - up);
+                data[oversampledSample] = up + (mix * (wet - up));
             }
         }
     }

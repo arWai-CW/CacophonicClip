@@ -82,9 +82,9 @@ public:
                   const ClipperSettings& settings) noexcept;
 
     // Reported latency of one oversampling index, in base-rate samples (integer).
-    int getLatencySamples (int index) const;
+    [[nodiscard]] int getLatencySamples (int index) const;
     // Worst-case latency across all indices; sizes the bypass reference delay.
-    int getMaxLatencySamples() const;
+    [[nodiscard]] int getMaxLatencySamples() const;
 
 private:
     // Biquad coefficients in juce::dsp::IIR::ArrayCoefficients order
@@ -147,12 +147,12 @@ private:
                                const BiquadCoefficients& coefficients) noexcept;
     static void clearStage (std::vector<BiquadState>& stage) noexcept;
 
-    float processPreChain (ModeBank& bank, int mode, int channel, float input,
-                           const FixedCoefficients& fixed,
-                           const DynamicCoefficients& dynamic) noexcept;
-    float processPostChain (ModeBank& bank, int mode, int channel, float input,
-                            const FixedCoefficients& fixed,
-                            const DynamicCoefficients& dynamic) noexcept;
+    static float processPreChain (ModeBank& bank, int mode, int channel, float input,
+                                  const FixedCoefficients& fixed,
+                                  const DynamicCoefficients& dynamic) noexcept;
+    static float processPostChain (ModeBank& bank, int mode, int channel, float input,
+                                   const FixedCoefficients& fixed,
+                                   const DynamicCoefficients& dynamic) noexcept;
 
     // Spec 12.4: clears the bank that is about to become the "new" side and
     // arms the 5 ms linear crossfade towards the given mode.

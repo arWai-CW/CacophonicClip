@@ -18,7 +18,7 @@ public:
         if (archive == nullptr)
             return std::nullopt;
 
-        if (auto* entry = archive->getEntry (path))
+        if (const auto* entry = archive->getEntry (path))
         {
             auto stream = rawToUniquePtr (archive->createStreamForEntry (*entry));
             const auto size = static_cast<size_t> (stream->getTotalLength());
