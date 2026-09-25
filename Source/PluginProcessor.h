@@ -20,6 +20,8 @@ namespace ParameterIDs
     inline constexpr auto oversampling = "oversampling";
     // Spec 12.1: appended after oversampling, still at the tail of the layout.
     inline constexpr auto emphasisMode = "emphasisMode";
+    // Appended last so all existing parameter indices stay stable.
+    inline constexpr auto autoGain = "autoGain";
 }
 
 struct MeterSnapshot

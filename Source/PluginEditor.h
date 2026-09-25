@@ -32,6 +32,7 @@ private:
     juce::WebToggleButtonRelay bypassRelay { ParameterIDs::bypass };
     juce::WebComboBoxRelay oversamplingRelay { ParameterIDs::oversampling };
     juce::WebComboBoxRelay emphasisModeRelay { ParameterIDs::emphasisMode };
+    juce::WebToggleButtonRelay autoGainRelay { ParameterIDs::autoGain };
     juce::WebBrowserComponent webView {
         juce::WebBrowserComponent::Options{}
             .withNativeIntegrationEnabled()
@@ -45,6 +46,7 @@ private:
             .withOptionsFrom (bypassRelay)
             .withOptionsFrom (oversamplingRelay)
             .withOptionsFrom (emphasisModeRelay)
+            .withOptionsFrom (autoGainRelay)
             .withResourceProvider (WebResourceProvider::getResource)
     };
 
@@ -58,6 +60,7 @@ private:
     std::unique_ptr<juce::WebToggleButtonParameterAttachment> webBypassAttachment;
     std::unique_ptr<juce::WebComboBoxParameterAttachment> webOversamplingAttachment;
     std::unique_ptr<juce::WebComboBoxParameterAttachment> webEmphasisModeAttachment;
+    std::unique_ptr<juce::WebToggleButtonParameterAttachment> webAutoGainAttachment;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(CacophonicClipEditor)
 };

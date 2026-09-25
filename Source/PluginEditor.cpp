@@ -106,7 +106,9 @@ CacophonicClipEditor::CacophonicClipEditor(CacophonicClipProcessor &processorToU
       webOversamplingAttachment(std::make_unique<juce::WebComboBoxParameterAttachment>(
           *processorRef.getAPVTS().getParameter(ParameterIDs::oversampling), oversamplingRelay)),
       webEmphasisModeAttachment(std::make_unique<juce::WebComboBoxParameterAttachment>(
-          *processorRef.getAPVTS().getParameter(ParameterIDs::emphasisMode), emphasisModeRelay))
+          *processorRef.getAPVTS().getParameter(ParameterIDs::emphasisMode), emphasisModeRelay)),
+      webAutoGainAttachment(std::make_unique<juce::WebToggleButtonParameterAttachment>(
+          *processorRef.getAPVTS().getParameter(ParameterIDs::autoGain), autoGainRelay))
 {
     addAndMakeVisible(webView);
 

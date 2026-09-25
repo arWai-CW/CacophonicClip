@@ -24,6 +24,9 @@ struct ClipperSettings
     float asym = 0.0f;
     // Oversampling choice index: 0 = 1x, 1 = 2x, 2 = 4x, 3 = 8x.
     int oversampleIndex = 2;
+    // When enabled, the output trim follows Drive inversely. This deliberately
+    // excludes boost2x; Drive and Trim mirror each other one-for-one.
+    bool autoGain = false;
 };
 
 class ClipperDSP

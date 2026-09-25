@@ -333,7 +333,8 @@ ClipperSettings CacophonicClipProcessor::readClipperSettings() const
         juce::roundToInt(parameters.getRawParameterValue(ParameterIDs::emphasisMode)->load()),
         parameters.getRawParameterValue(ParameterIDs::asym)->load(),
         // AudioParameterChoice stores the raw choice index as its value.
-        juce::roundToInt(parameters.getRawParameterValue(ParameterIDs::oversampling)->load())
+        juce::roundToInt(parameters.getRawParameterValue(ParameterIDs::oversampling)->load()),
+        parameters.getRawParameterValue(ParameterIDs::autoGain)->load() > 0.5f
     };
 }
 
@@ -344,7 +345,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout CacophonicClipProcessor::cre
     layout.add(std::make_unique<juce::AudioParameterFloat>(
         juce::ParameterID{ParameterIDs::trim, 1},
         "Trim",
-        juce::NormalisableRange<float>(-12.0f, 0.0f, 0.1f),
+        juce::NormalisableRange<float>(-24.0f, 0.0f, 0.1f),
         0.0f,
         juce::AudioParameterFloatAttributes()
             .withLabel("dB")
@@ -434,6 +435,12 @@ juce::AudioProcessorValueTreeState::ParameterLayout CacophonicClipProcessor::cre
         "Emphasis Mode",
         juce::StringArray{"OFF", "TAPE", "TUBE"},
         0));
+
+    // Appended last to keep every existing parameter index stable.
+    layout.add(std::make_unique<juce::AudioParameterBool>(
+        juce::ParameterID{ParameterIDs::autoGain, 1},
+        "Auto Gain",
+        false));
 
     return layout;
 }

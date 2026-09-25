@@ -297,7 +297,13 @@ void ClipperDSP::process (juce::AudioBuffer<float>& buffer,
     const auto factor = oversamplingFactors[static_cast<size_t> (osIndex)];
     const auto& fixed = fixedModeCoefficients[static_cast<size_t> (osIndex)];
 
-    const auto trimTarget = juce::Decibels::decibelsToGain (settings.trimDb);
+    // Auto-gain is an explicit Drive/Trim link, not a level meter. Drive and
+    // Trim cover the same +/-24 dB span, so +12 dB Drive maps to -12 dB Trim.
+    // boost2x stays outside the link and remains a deliberate separate choice.
+    const auto trimDb = settings.autoGain
+        ? juce::jlimit (-24.0f, 0.0f, -settings.driveDb)
+        : settings.trimDb;
+    const auto trimTarget = juce::Decibels::decibelsToGain (trimDb);
     const auto driveGain = juce::Decibels::decibelsToGain (settings.driveDb);
     const auto targetDoubleGain = settings.doubleGain ? 2.0f : 1.0f;
 
