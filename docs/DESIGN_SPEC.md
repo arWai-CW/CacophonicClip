@@ -18,7 +18,7 @@ Dials：`DESIGN_VARIANCE: 4`、`MOTION_INTENSITY: 2`、`VISUAL_DENSITY: 5`。
 | 3 | 文案砍到只剩面板絲印 |
 | 4 | 固定畫布 `1120×560`，按比例縮放 |
 | 5 | 打包 woff2 字體 ＋ 紋理全用 SVG/CSS 程序生成（plugin 必須離線） |
-| 6 | `MOTION_INTENSITY: 2`：無入場／捲動動畫，只有 meter ballistics、旋鈕回饋、開關按壓、OVER 燈 |
+| 6 | `MOTION_INTENSITY: 2`：無入場／捲動動畫，只有 meter ballistics、旋鈕回饋、開關按壓、CLIP 燈 |
 | 7 | 面板＝深灰鎂色 ＋ 象牙絲印 ＋ 單一琥珀 accent ＋ 紅色僅語意；**單一 locked 暗主題**，無 light mode、無切換、無 section 翻轉 |
 | 8 | Meter＝工業式 LED 階梯，單色琥珀、紅頂 2 段；**綠色移除** |
 | 9 | `Shape`＝連續旋鈕 `0–100%`，`0=SOFT (tanh)`、`100=HARD`，**必須連動 transfer curve 的 knee 與 ceiling** |
@@ -27,9 +27,9 @@ Dials：`DESIGN_VARIANCE: 4`、`MOTION_INTENSITY: 2`、`VISUAL_DENSITY: 5`。
 | 12 | 構圖＝上下兩帶：顯示窗在上、控制列在下，**整塊一張連續面板**，控制項之間無個別邊框 |
 | 13 | Drive 放大，其餘四個等大、共用同一條基線 |
 | 14 | 材質：**四角螺絲 ＋ 最多兩條 engraved seam ＋ 極淡拉絲紋理**。無銘牌、無散熱孔、無旋鈕凹座 |
-| 15 | **紅色＝「訊號正在被切／過載」一件事**：只准用在 OVER 燈、waveform 的 CLIPPED 區、meter 最頂 2 段。2x 踏下用**琥珀亮起 ＋ 按鈕下沉** |
+| 15 | **紅色＝「訊號正在被切／過載」一件事**：只准用在 CLIP 燈、A-GAIN 啟用燈、waveform 的 CLIPPED 區、meter 最頂 2 段。2x 踏下用**琥珀亮起 ＋ 按鈕下沉** |
 | 16 | 控制列排序（重要性優先，非訊號流程）：**`DRIVE → 2x → MIX → SHAPE → TRIM`** |
-| 17 | LED ladder 嵌在**同一個顯示窗 bezel 內**左右；`OVER` 燈放顯示窗右上角、bezel 內側 |
+| 17 | LED ladder 嵌在**同一個顯示窗 bezel 內**左右；`CLIP` 燈放顯示窗右上角、bezel 內側 |
 | 18 | 讀數移到旋鈕**正下方**固定行，旋鈕面只剩 pointer ＋ 刻度環；讀數用 `IBM Plex Mono` |
 | 19 | 顯示窗：**貫穿全寬的水平 ceiling 照行 ＋ 動態 dBFS 標籤** ＋ 最簡十字 graticule（只留中心十字與中線），無方格網 |
 | 20 | 2x 標籤＝`2x` ＋ 小字 `INPUT GAIN` |
@@ -38,7 +38,7 @@ Dials：`DESIGN_VARIANCE: 4`、`MOTION_INTENSITY: 2`、`VISUAL_DENSITY: 5`。
 | 23 | 加 **BYPASS** 搖臂開關，放面板**右上角**，琥珀 lamp，標籤寫 `BYPASS`（不寫 `POWER`） |
 | 24 | BYPASS 的 plumbing（參數＋relay＋attachment）**與 UI 同輪交付**；「引擎」限定為 `ClipperDSP` 的 trim 搬移 |
 | 25 | UI **一次到位對準目標語意**：絲印主標 `TRIM` ＋ 副標 `OUTPUT`、curve 把 trim 當輸出垂直縮放、ceiling 線隨之下移、標籤動態 |
-| 26 | `OVER` 燈語意＝**「正在被切」**：`driven` 峰值穿越 clip ceiling `±1.0` 即亮（3 幀確認、`>1.002` 才觸發、`≤1.0` 才釋放、200ms 釋放尾），帶遲滯避免閃爍。**不可**拿 `driven` 對 `output` 比：trim 已改後級，`output` 永遠低於 ceiling，燈會是死亮。 |
+| 26 | `CLIP` 燈語意＝**「目前這個 audio block 正在被切」**：只讀 `drivenPeak > 1.0` 的當前 block，不掃 waveform history，不保留長 tail；輸出超過 0 dBFS 由 LED ladder 頂端紅段表達。 |
 | 27 | 圓角系統＝**全直角 `radius: 0`**，唯一曲線是圓形旋鈕與圓形燈 |
 | 28 | 縮放 `k ∈ [0.8, 1.5]`（`896×448` – `1680×840`），畫布釘 `1120×560` CSS px ＋ `transform: scale(k)` |
 
@@ -61,7 +61,7 @@ Dials：`DESIGN_VARIANCE: 4`、`MOTION_INTENSITY: 2`、`VISUAL_DENSITY: 5`。
 | `--ivory` | `#E8E3D6` | 主絲印、旋鈕 pointer（panel 上 9.4:1） |
 | `--dim` | `#A7ABA4` | 次級絲印、TRIM 降級標、graticule（panel 上 5.15:1） |
 | `--amber` | `#E0A33C` | **唯一 accent**：讀數、value arc、curve、meter 琥珀段、lamp（panel 5.4:1 / window 8.1:1） |
-| `--over` | `#F2543C` | **僅語意**：OVER 燈、CLIPPED 區、meter 頂 2 段 |
+| `--over` | `#F2543C` | **僅語意**：CLIP 燈、A-GAIN 啟用燈、CLIPPED 區、meter 頂 2 段 |
 | `--knob-cap` | `#2A2D2F` | 旋鈕帽 |
 | `--slot-off` | `#1B1E20` | LED 未亮段（比窗底略亮即可，過亮會搶走 curve 主角地位） |
 | `--lamp-off` | `#4A3A1C` | 熄燈的 lamp（暗琥珀，讓它讀作「未亮的燈」而非一個洞） |
@@ -103,7 +103,7 @@ Dials：`DESIGN_VARIANCE: 4`、`MOTION_INTENSITY: 2`、`VISUAL_DENSITY: 5`。
 水平：`[pad 10][LED-L 18][間10][中央 980][間10][LED-R 18][pad 10]`
 垂直中央欄：`[pad-top 8][微頂 14][curve 168][divider 1][wave 65][微底 12][pad-bottom 8] = 276`
 
-- **微頂列**：僅右端 `OVER` 燈 ＋ `OVER` 標籤（lamp 暗時標籤 `--dim`，亮時 `--over`）。**左側留空**（無標題）。
+- **微頂列**：僅右端 `CLIP` 燈 ＋ `CLIP` 標籤（lamp 暗時標籤 `--dim`，亮時 `--over`）。**左側留空**（無標題）。
 - **curve**（980 × 168）：`x ∈ [-1, 1]`（輸入 0 dBFS 歸一）、`y ∈ [-1.12, 1.12]`。
   - 曲線 `--amber` 2px `vector-effect: non-scaling-stroke`
   - ceiling 照行 `--amber` 1px `stroke-dasharray: 4 4` opacity .5，位置 `y = trimGain`
@@ -154,6 +154,7 @@ Dials：`DESIGN_VARIANCE: 4`、`MOTION_INTENSITY: 2`、`VISUAL_DENSITY: 5`。
 - 外圈刻度：9 條 1px 放射線 `--dim`（假設 3，可移除）
 - 帽：圓形 `fill: --knob-cap`，半徑 `0.36 × viewBox`，1px `--bezel-in` 內緣，**只當 filmstrip 解碼前的 placeholder**
 - 面板：`.knob-face` 貼在 SVG 之上（`pointer-events: none`），直徑 `0.84 × slot`，半徑落在 viewBox r42，貼住溝槽內緣（r43.5）、不壓到刻度（r47.5…50）
+- **face 對齊 `.knob-body`，不是 `.knob-slot`**：skin 指針是唯一指針，畫歪＝旋鈕同時指向兩個方向。TRIM 為讓位給 A-GAIN 用 `justify-content: flex-start` 把 SVG 推到左邊，若 face 仍以 slot 為中心會偏約 `45 × (panel scale)`px；因此 SVG 與 face 包在 `.knob-body`（`position: relative`、`width/height: var(--knob-size)`）內，face 以 body 中心定位
 - **沒有 vector pointer**：指針由 skin 自帶，兩者不可疊加
 - 無中心讀數（讀數在下方固定行）
 
@@ -168,6 +169,8 @@ Dials：`DESIGN_VARIANCE: 4`、`MOTION_INTENSITY: 2`、`VISUAL_DENSITY: 5`。
 
 矩形搖臂 `radius: 0`。lamp 琥珀＝活動中。
 
+**A-GAIN 也是這套開關**：凹槽＋凸帽同 `.os-seg`，只有尺寸縮到 `54×20`、帽改 `inset: 2px`；lamp 為紅（`--over`）而非琥珀，因為紅只代表「訊號正在被切／過載」與 A-GAIN 啟用（規則 15）。燈與字都在帽上（`z-index: 1`），按下時連字一起下沉；`aria-pressed` 表達狀態，不靠 lamp 單獨表達。
+
 ## 5. 動態（MOTION 2）
 
 | 動畫 | 機制 | 動機 |
@@ -175,7 +178,7 @@ Dials：`DESIGN_VARIANCE: 4`、`MOTION_INTENSITY: 2`、`VISUAL_DENSITY: 5`。
 | meter 衰減 | attack 即時、release 指數 ~300ms | 回饋訊號強度 |
 | 旋鈕 value arc | 即時（無 transition） | 回饋當前值 |
 | 開關位移 | `translateY(1px)` 80ms | 回饋按壓 |
-| OVER 燈 | 即時亮、200ms 釋放、帶遲滯 | 回饋正在削波 |
+| CLIP 燈 | 只在當前 driven block 超過 ±1 時亮，無 history tail | 回饋正在削波 |
 
 - **零** `window.addEventListener('scroll')`、零捲動、零入場動畫。
 - `prefers-reduced-motion: reduce`：meter release 改即時階梯、開關移除 transition（meter 本身是資料，保留）。
@@ -223,12 +226,13 @@ Dials：`DESIGN_VARIANCE: 4`、`MOTION_INTENSITY: 2`、`VISUAL_DENSITY: 5`。
 
 | ID | 型別 | 範圍 | 說明 | 狀態 |
 |---|---|---|---|---|
-| `trim` | float | `-12 … 0 dB` | **改為後級輸出 trim** | 引擎待改 |
+| `trim` | float | `-24 … 0 dB` | **後級輸出 trim；A-GAIN 開啟時由 Drive 反向映射** | 已完成 |
 | `drive` | float | `0 … 24 dB` (skew 3) | 不變 | 已有 |
 | `mix` | float | `0 … 1` | 不變 | 已有 |
 | `boost2x` | bool | — | 不變（UI 讀取名 `boost2x`） | 已有 |
 | `shape` | float | `0 … 1` | soft↔hard morph | **已完整接線，僅缺 Svelte 端** |
 | `bypass` | bool | — | **新增**，JUCE 無 `setBypassParameter`，改覆寫 virtual `getBypassParameter()` | 已完成 |
+| `autoGain` | bool | — | Drive/Trim linkage：Drive +X dB 時有效 Trim = -X dB；2x 不納入 | 已完成 |
 
 ### 7.2 Svelte 端接法
 
@@ -251,16 +255,18 @@ const bypassState = getToggleState('bypass');   // 引擎新增後才有
    - **本 JUCE 無 `AudioProcessor::setBypassParameter`**，等價作法就是覆寫 `virtual getBypassParameter() const`（host wrapper 會自己去拿）。`fadeLength = max(1, sampleRate × 0.005)`，狀態在 `prepareToPlay` 清零。
    - bypass 時 `driven` 與 `output` waveform 都記輸入原樣；driven 的顯示增益為 `2x × Drive`（**不含 trim**），因為 trim 已不屬於 clip 階段。
 3. `ClipperSettings::shape` 與 `StringFromValue` 已完成，**不動**。
+4. `autoGain` 參數追加到 layout 尾端，接 `WebToggleButtonRelay` 與 attachment。DSP 收到 `autoGain = true` 時使用 `trimDb = clamp(-driveDb, -24, 0)`；2x 不參與這條 linkage。
 
 ### 7.4 Curve 公式（UI 端）
 
 ```
+effectiveTrimDb = autoGain ? clamp(-driveDb, -24, 0) : trimDb
 gain    = 10^(drive/20) × (boost2x ? 2 : 1)
 clipped = lerp(tanh(in × gain), clamp(in × gain, -1, 1), shape)
-out     = clipped × 10^(trim/20)
-ceiling = 10^(trim/20)          // 對應 y 位置與標籤
+out     = clipped × 10^(effectiveTrimDb/20)
+ceiling = 10^(effectiveTrimDb/20)  // 對應 y 位置與標籤
 ```
-不含 `mix`（假設 2）。
+不含 `mix`（假設 2）。A-GAIN 是 Drive/Trim 的反向 link，不是 loudness 動態 compensation；被 clipper 限制的峰值仍不會恢復成等幅。
 
 ## 8. 交付流程
 
@@ -308,7 +314,7 @@ cd ui && bun run dev     # vite dev, http://127.0.0.1:5173
 | DOM 座標 | panel `[0,0,1120,560]`、window `[32,64,1056,276]`、seam2 `y=354`、controls `[32,368,1056,162]`、knob `[32,368,236,112]`、readout `486`、main `502`、sub `517`（底 528） |
 | 讀數不再壓旋鈕 | knob 底 480 → readout 頂 486，間 6px |
 | 縮放 | `896×448 → scale(0.8)`、`1120×560 → scale(1)`、`1680×840 → scale(1.5)`；三者 `scrollWidth === innerWidth`（零捲動） |
-| 渲染驗證 | 以 `backend.emitByBackend('meterData', ...)` 注入 512 點 `driven` 峰值 3.0 / `output` 已夾到 1.0：紅帶可見、meter 琥珀段與頂部紅段亮、`OVER` 燈與標籤轉紅 |
+| 渲染驗證 | 以 `backend.emitByBackend('meterData', ...)` 注入當前 block `drivenPeak = 3.0` / `output` 已夾到 1.0：紅帶可見、meter 琥珀段與頂部紅段亮、`CLIP` 燈與標籤轉紅；下一筆 `drivenPeak = 0.2` 時 `CLIP` 立即熄滅 |
 | 禁用資產 | `ui/src` 與 `Source/ui_dist` 無 `a9c891` / `8fd2e8`；無 `—` `–` `·`；CSS 無 `dark:` |
 | lint / check / build | `bun run lint`（prettier＋eslint）、`bun run check`（0 error 0 warning）、`bun run build` 全過 |
 | C++ | `cmake --build build -j` EXIT 0，0 error 0 warning，已安裝 VST3 |
@@ -444,7 +450,7 @@ y  = b0*x + b1*x1 - a1*y1          // DC 處恰為 0，Nyquist 恆為 1
   - 自建簡易循環緩衝（`std::vector<float>` × channel，長度 `maxLatency + maxBlockSize`）即可，**不要**用 `juce::dsp::DelayLine`（delay 0 有邊界問題）。
   - `latency == 0`（1x）時 read = 當前輸入。
   - **照舊**維持 `driven` / `output` waveform 記原始輸入（不記延遲版）：那是捲動歷史，幾 ms 位移看不出来。
-- `OVER` 判定**不變**：仍以 `driven = input × (2x ? 2 : 1) × driveGain` 對 `±1.002 / ≤1.0 / 3 幀 / 200ms` 這套邏輯。emphasis 與 bias **不進** OVER 與紅帶（asym > 0 時正向其實會早一點被削，這是已知近似，asym = 0 時精確）。
+- **`CLIP` 判定**：只以當前 block 的 `drivenPeak = input × (2x ? 2 : 1) × driveGain` 對 `> 1.0` 判定；不掃 waveform history，不保留 3 幀確認或 200ms tail。emphasis 與 bias 不進 CLIP 與紅帶（asym > 0 時正向其實會早一點被削，這是已知近似，asym = 0 時精確）。
 
 ### 11.3 Curve 公式（UI 端，**取代 §7.4**）
 
@@ -485,7 +491,7 @@ out     = c × 10^(trim/20)
 
 **微頂列**改成 `justify-content: space-between`：
 - 左：`WAVE` / `EQ` 視圖切換（兩個 9px mono 文字按鈕，**不是**實體控件，屬顯示器自身的模式鍵；active `--amber`、inactive `--dim`、hover `--ivory`，`radius: 0`、無背景、無邊框）
-- 右：照舊 `OVER` 燈 ＋ `OVER` 標籤
+- 右：`CLIP` 燈 ＋ `CLIP` 標籤
 
 **微底列**：
 - 左（僅 EQ 視圖時出現）：`EMPH 3.0 kHz +7.5 dB`
@@ -551,7 +557,7 @@ const oversamplingState = resolveOversamplingState();  // getComboBoxState('over
 新增驗收項：
 - DOM：controls 內七欄、寬度 `180/156/144/144/144/144/144`、readout/main/sub 仍在 `486/502/517`
 - 上緣右側有四段開關，右端對齊 `x = 1088`
-- 微頂左有 `WAVE` `EQ`、右仍是 `OVER`
+- 微頂左有 `WAVE` `EQ`、右是 `CLIP`
 - 切到 `EQ` 得到 980×65 的 emphasis 曲線；`emphasis` 拉到 10 時 20 kHz 端 y ≈ 5.7
 - 四顆既有旋鈕＋兩顆新旋鈕 arc 終點 vs 指針角度誤差 `< 0.01°`
 - `bun run lint` / `check` / `build` 全過；`cmake --build build -j` 0 error 0 warning
@@ -677,7 +683,7 @@ post:  y = b0'·x + b1'·x1 + b2'·x2 − a1'·y1 − a2'·y2  // a0' = 1，不�
 5. 逐 base sample：12 Hz AC-coupling 高通 → trim        // §11.2 不變
 ```
 
-- **ASYM 的 bias / 歸一化、AC-coupling、oversampling、latency、bypass 延遲參考、OVER 判定、waveform 錄製：全部不動。**
+- **ASYM 的 bias / 歸一化、AC-coupling、oversampling、latency、bypass 延遲參考、CLIP 判定、waveform 錄製：全部不動。**
 - **post 的 low shelf 可能讓輸出略超 0 dBFS**（clip 後的 wet 峰值 ±1，再被抬 +2.25 / +3 dB）。這是磁帶 head bump 的固有行為，**不加第二道 clamp**；需要時用 `TRIM` 壓回。此為已知限制。
 
 ### 12.6 UI
@@ -735,4 +741,12 @@ TUBE → "TUBE 2.3 kHz +3.0 dB"      // 頻率 1500+1500·p、增益 p×6.0；p=
 - DOM：上緣右群含 MODE 三段，右端 `x = 1088`，左緣不早於 `x = 480`；控制列仍是七欄、基線不動。
 - 切 `EQ` 後 `OFF` 是平的 0 dB；切 `TAPE` 看得到 25 Hz HP 與 75 Hz bump；切 `TUBE` 看得到 115 Hz HP、bell、14 kHz LP、100 Hz bump；衰減區（HP / LP 掉到 −12 dB 以下）會被 clamp 在畫布底邊 `y = 65`，**全 path 的 y 必須落在 `[0, 65]`**。
 - `EMPHASIS` 讀數是 `%`；arc 終點 vs 指針誤差 `< 0.01°`。
-- `bun run lint` / `check` / `build` 全過；`cmake --build build -j` 0 error 0 warning；禁用資產複測同 §11.9。
+- `bun run test` / `lint` / `check` / `build` 全過；`cmake --build build -j` 0 error 0 warning；禁用資產複測同 §11.9。
+
+## 13. 本輪：Trim -24、Auto-gain、CLIP
+
+1. **全域禁止文字選取**：面板是控制 surface，拖過 label、readout 或絲印不得開始 selection；使用 `user-select: none`、`-webkit-user-select: none` 與 `selectstart` 防護。
+2. **Trim 範圍改為 `-24 … 0 dB`**：與 Drive 的 `0 … 24 dB` 對稱，UI knob normalization、readout、transfer curve 與 engine parameter 同步更新。
+3. **A-GAIN 是 Drive/Trim linkage**：TRIM 旁新增小型 `A-GAIN` 按鈕與紅色啟用燈，按鈕採與 MODE／oversampling 相同的凹槽＋凸帽下沉樣式（可 push-down，不是純指示燈）。開啟時有效 Trim 顯示並使用 `clamp(-Drive, -24, 0)`，Trim knob 鎖定，副標顯示 `LINKED`；關閉時恢復原本的手動 Trim。2x Input Gain 維持獨立，不納入補償。TRIM knob 因此左移讓位，skin face 必須以 `.knob-body` 為中心（見 §4.3），否則指針與 arc 終點不對齊。
+4. **CLIP 與 output meter 分工**：`CLIP` 只讀目前 block 的 `drivenPeak > 1.0`，不再讀 5 秒 waveform history，也沒有舊的 3 幀／200ms tail。最終 output 超過 0 dBFS 仍只由兩側 LED ladder 頂端紅段表示。
+5. **A-GAIN 的音量意義**：Drive +X dB 搭配 Trim -X dB 會讓尚未進入 clipper ceiling 的輸入維持近似 unity gain；一旦 Drive 將樣本推到 ±1，clipper 仍會壓縮峰值，因此不會保證所有 loudness 完全等幅。這是靜態 link 的刻意的非動態行為。
