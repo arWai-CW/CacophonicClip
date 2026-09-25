@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { getComboBoxState, getSliderState, getToggleState } from '@juce-framework/webview';
 	import { EMPHASIS_MODES, chainDb, emphasisCaption, emphasisChain } from '$lib/emphasisEq';
+	import { effectiveTrimDb, readClipActive } from '$lib/uiState';
 	import type { Biquad } from '$lib/emphasisEq';
 
 	type KnobName = 'trim' | 'drive' | 'mix' | 'shape' | 'emphasis' | 'asym';
@@ -91,6 +92,20 @@
 	}
 	const emphasisModeState = resolveEmphasisModeState();
 
+	// Auto-gain is appended after emphasisMode so existing parameter indices and
+	// host automation stay stable. The guard keeps a stale embedded UI loadable.
+	function resolveAutoGainState(): ReturnType<typeof getToggleState> | null {
+		if (typeof window === 'undefined') return null;
+		try {
+			const registered: string[] = window.__JUCE__?.initialisationData?.__juce__toggles ?? [];
+			if (!registered.includes('autoGain')) return null;
+			return getToggleState('autoGain');
+		} catch {
+			return null;
+		}
+	}
+	const autoGainState = resolveAutoGainState();
+
 	const columns: Column[] = [
 		{
 			kind: 'knob',
@@ -144,9 +159,8 @@
 			label: 'TRIM',
 			sub: 'OUTPUT',
 			width: 144,
-			size: 92,
-			film: 'small',
-			degraded: true
+			size: 84,
+			film: 'small'
 		}
 	];
 
@@ -183,8 +197,13 @@
 		}
 	}
 
-	let trimValue = $state(trimState.getScaledValue());
-	let driveValue = $state(driveState.getScaledValue());
+	const initialDriveValue = driveState.getScaledValue();
+	const initialAutoGainValue = autoGainState ? autoGainState.getValue() : false;
+	let driveValue = $state(initialDriveValue);
+	let autoGainValue = $state(initialAutoGainValue);
+	let trimValue = $state(
+		effectiveTrimDb(trimState.getScaledValue(), initialDriveValue, initialAutoGainValue)
+	);
 	let mixValue = $state(mixState.getScaledValue());
 	let shapeValue = $state(shapeState.getScaledValue());
 	let emphasisValue = $state(emphasisState.getScaledValue());
@@ -200,7 +219,7 @@
 	let bypassValue = $state(bypassState ? bypassState.getValue() : false);
 	let meterLeft = $state(0);
 	let meterRight = $state(0);
-	let overActive = $state(false);
+	let clipActive = $state(false);
 	let inputWaveformMin = $state<number[]>([]);
 	let inputWaveformMax = $state<number[]>([]);
 	let drivenWaveformMin = $state<number[]>([]);
@@ -212,20 +231,19 @@
 	let dragStartY = 0;
 	let dragStartValue = 0;
 	let lastMeterAt = 0;
-	let overFrames = 0;
-	let overReleaseTimer: ReturnType<typeof setTimeout> | null = null;
 
 	const reducedMotionQuery =
 		typeof window !== 'undefined' ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
 
 	$effect(() => {
 		updateScale();
-		const trimListener = trimState.valueChangedEvent.addListener(
-			() => (trimValue = trimState.getScaledValue())
-		);
-		const driveListener = driveState.valueChangedEvent.addListener(
-			() => (driveValue = driveState.getScaledValue())
-		);
+		const trimListener = trimState.valueChangedEvent.addListener(() => {
+			if (!autoGainValue) trimValue = trimState.getScaledValue();
+		});
+		const driveListener = driveState.valueChangedEvent.addListener(() => {
+			driveValue = driveState.getScaledValue();
+			if (autoGainValue) trimValue = effectiveTrimDb(trimValue, driveValue, true);
+		});
 		const mixListener = mixState.valueChangedEvent.addListener(
 			() => (mixValue = mixState.getScaledValue())
 		);
@@ -244,6 +262,10 @@
 		const bypassListener = bypassState?.valueChangedEvent.addListener(
 			() => (bypassValue = bypassState ? bypassState.getValue() : false)
 		);
+		const autoGainListener = autoGainState?.valueChangedEvent.addListener(() => {
+			autoGainValue = autoGainState ? autoGainState.getValue() : false;
+			trimValue = effectiveTrimDb(trimState.getScaledValue(), driveValue, autoGainValue);
+		});
 		const oversamplingListener = oversamplingState?.valueChangedEvent.addListener(
 			() =>
 				(oversamplingIndex = oversamplingState
@@ -272,6 +294,7 @@
 			const data = payload as {
 				outputLeft: number;
 				outputRight: number;
+				drivenPeak: number;
 				inputWaveformMin: number[];
 				inputWaveformMax: number[];
 				drivenWaveformMin: number[];
@@ -290,7 +313,7 @@
 			drivenWaveformMax = data.drivenWaveformMax ?? [];
 			outputWaveformMin = data.outputWaveformMin ?? [];
 			outputWaveformMax = data.outputWaveformMax ?? [];
-			updateOver(peakOf(drivenWaveformMin, drivenWaveformMax));
+			clipActive = readClipActive(data);
 		});
 		return () => {
 			window.__JUCE__.backend.removeEventListener(meterListener);
@@ -303,6 +326,8 @@
 			boostState.valueChangedEvent.removeListener(boostListener);
 			if (bypassListener !== undefined)
 				bypassState?.valueChangedEvent.removeListener(bypassListener);
+			if (autoGainListener !== undefined)
+				autoGainState?.valueChangedEvent.removeListener(autoGainListener);
 			if (oversamplingListener !== undefined)
 				oversamplingState?.valueChangedEvent.removeListener(oversamplingListener);
 			if (oversamplingPropertiesListener !== undefined)
@@ -323,40 +348,6 @@
 		if (next >= previous) return next;
 		if (reducedMotionQuery?.matches) return next;
 		return next + (previous - next) * Math.exp(-dt / 300);
-	}
-
-	function peakOf(mins: number[], maxs: number[]) {
-		let peak = 0;
-		for (const value of maxs) peak = Math.max(peak, Math.abs(value));
-		for (const value of mins) peak = Math.max(peak, Math.abs(value));
-		return peak;
-	}
-
-	// Semantic: "being clipped right now": the driven signal crossed the ±1
-	// clip ceiling. Comparing driven against output no longer works, since
-	// output is now post-Trim and sits below the ceiling whenever Trim < 0 dB.
-	// Three frames to light, a lower threshold to release, 200ms release tail.
-	function updateOver(drivenPeak: number) {
-		const cutting = drivenPeak > 1.002;
-		const released = drivenPeak <= 1.0;
-		if (cutting) {
-			overFrames += 1;
-			if (overFrames >= 3 && !overActive) {
-				if (overReleaseTimer !== null) {
-					clearTimeout(overReleaseTimer);
-					overReleaseTimer = null;
-				}
-				overActive = true;
-			}
-			return;
-		}
-		overFrames = 0;
-		if (overActive && released && overReleaseTimer === null) {
-			overReleaseTimer = setTimeout(() => {
-				overActive = false;
-				overReleaseTimer = null;
-			}, 200);
-		}
 	}
 
 	function getState(name: KnobName) {
@@ -468,8 +459,9 @@
 	function resetKnob(event: MouseEvent, name: KnobName) {
 		event.preventDefault();
 		event.stopPropagation();
+		if (name === 'trim' && autoGainValue) return;
 		const defaults: Record<KnobName, number> = {
-			trim: 1,
+			trim: 0,
 			drive: 0,
 			mix: 1,
 			shape: 0,
@@ -482,7 +474,10 @@
 	function setValue(name: KnobName, normalised: number) {
 		getState(name).setNormalisedValue(Math.max(0, Math.min(1, normalised)));
 		if (name === 'trim') trimValue = trimState.getScaledValue();
-		if (name === 'drive') driveValue = driveState.getScaledValue();
+		if (name === 'drive') {
+			driveValue = driveState.getScaledValue();
+			if (autoGainValue) trimValue = effectiveTrimDb(trimValue, driveValue, true);
+		}
 		if (name === 'mix') mixValue = mixState.getScaledValue();
 		if (name === 'shape') shapeValue = shapeState.getScaledValue();
 		if (name === 'emphasis') emphasisValue = emphasisState.getScaledValue();
@@ -490,6 +485,7 @@
 	}
 	function beginKnob(event: PointerEvent, name: KnobName) {
 		event.preventDefault();
+		if (name === 'trim' && autoGainValue) return;
 		activeKnob = name;
 		dragStartY = event.clientY;
 		dragStartValue = getNormalised(name);
@@ -528,7 +524,7 @@
 
 	function getVisualNormalised(name: KnobName) {
 		const value = getValue(name);
-		if (name === 'trim') return (value + 12.0) / 12.0;
+		if (name === 'trim') return (value + 24.0) / 24.0;
 		if (name === 'drive') return value / 24.0;
 		if (name === 'emphasis') return value / 100;
 		return value;
@@ -563,7 +559,7 @@
 
 	function ariaRange(name: KnobName) {
 		if (name === 'drive') return { min: 0, max: 24, now: driveValue };
-		if (name === 'trim') return { min: -12, max: 0, now: trimValue };
+		if (name === 'trim') return { min: -24, max: 0, now: trimValue };
 		if (name === 'emphasis') return { min: 0, max: 100, now: emphasisValue };
 		if (name === 'asym') return { min: 0, max: 100, now: asymValue * 100 };
 		return { min: 0, max: 100, now: getValue(name) * 100 };
@@ -675,6 +671,12 @@
 		boostValue = !boostValue;
 		boostState.setValue(boostValue);
 	}
+	function toggleAutoGain() {
+		if (!autoGainState) return;
+		autoGainValue = !autoGainValue;
+		autoGainState.setValue(autoGainValue);
+		trimValue = effectiveTrimDb(trimState.getScaledValue(), driveValue, autoGainValue);
+	}
 	function toggleBypass() {
 		if (!bypassState) return;
 		bypassState.setValue(!bypassValue);
@@ -714,6 +716,10 @@
 		event.preventDefault();
 		event.stopPropagation();
 	}
+
+	function preventTextSelection(event: Event) {
+		event.preventDefault();
+	}
 </script>
 
 <svelte:window
@@ -722,6 +728,7 @@
 	onpointerup={endKnob}
 	onpointercancel={endKnob}
 	oncontextmenu={dismissContextMenu}
+	onselectstart={preventTextSelection}
 />
 
 <div class="stage">
@@ -826,8 +833,8 @@
 							>
 						</div>
 						<div class="micro-status">
-							<span class="lamp lamp-over" class:lit={overActive}></span>
-							<span class="micro over-label" class:lit={overActive}>OVER</span>
+							<span class="lamp lamp-clip" class:lit={clipActive}></span>
+							<span class="micro clip-label" class:lit={clipActive}>CLIP</span>
 						</div>
 					</div>
 
@@ -890,33 +897,56 @@
 			{#each columns as col (col.label)}
 				<div class="col" style={`width: ${col.width}px`}>
 					{#if col.kind === 'knob' && col.name}
-						<div class="knob-slot" style={`--knob-size: ${col.size}px`}>
-							<svg
-								class="knob-svg"
-								viewBox="0 0 100 100"
-								role="slider"
-								tabindex="0"
-								aria-label={col.label}
-								aria-valuemin={ariaRange(col.name as KnobName).min}
-								aria-valuemax={ariaRange(col.name as KnobName).max}
-								aria-valuenow={ariaRange(col.name as KnobName).now}
-								ondblclick={(event) => resetKnob(event, col.name as KnobName)}
-								onpointerdown={(event) => beginKnob(event, col.name as KnobName)}
-							>
-								<path class="knob-groove" d={arcPath(45, -135, 135)} />
-								<path
-									class="knob-arc"
-									d={arcPath(45, -135, -135 + getVisualNormalised(col.name as KnobName) * 270)}
-								/>
-								{#each knobTicks as angle (angle)}
-									<line class="knob-tick" {...tickLine(angle)} />
-								{/each}
-								<circle class="knob-cap" cx="50" cy="50" r="36" />
-							</svg>
-							<!-- Skinned face laid over the vector cap. The filmstrip carries
-							     its own pointer, so no vector pointer is drawn; the cap
-							     stays underneath as the placeholder until the strip decodes. -->
-							<div class="knob-face" style={filmstripStyle(col)}></div>
+						<div
+							class="knob-slot"
+							class:trim-knob-slot={col.name === 'trim'}
+							style={`--knob-size: ${col.size}px`}
+						>
+							<div class="knob-body">
+								<svg
+									class="knob-svg"
+									class:linked={col.name === 'trim' && autoGainValue}
+									viewBox="0 0 100 100"
+									role="slider"
+									tabindex="0"
+									aria-label={col.label}
+									aria-disabled={col.name === 'trim' && autoGainValue}
+									aria-valuemin={ariaRange(col.name as KnobName).min}
+									aria-valuemax={ariaRange(col.name as KnobName).max}
+									aria-valuenow={ariaRange(col.name as KnobName).now}
+									ondblclick={(event) => resetKnob(event, col.name as KnobName)}
+									onpointerdown={(event) => beginKnob(event, col.name as KnobName)}
+								>
+									<path class="knob-groove" d={arcPath(45, -135, 135)} />
+									<path
+										class="knob-arc"
+										d={arcPath(45, -135, -135 + getVisualNormalised(col.name as KnobName) * 270)}
+									/>
+									{#each knobTicks as angle (angle)}
+										<line class="knob-tick" {...tickLine(angle)} />
+									{/each}
+									<circle class="knob-cap" cx="50" cy="50" r="36" />
+								</svg>
+								<!-- Skinned face laid over the vector cap. The filmstrip carries
+								     its own pointer, so no vector pointer is drawn; the cap
+								     stays underneath as the placeholder until the strip decodes. -->
+								<div class="knob-face" style={filmstripStyle(col)}></div>
+							</div>
+							{#if col.name === 'trim'}
+								<button
+									class="auto-gain"
+									class:on={autoGainValue}
+									type="button"
+									aria-label="Auto-gain: mirror Drive inversely onto Trim"
+									aria-pressed={autoGainValue}
+									title="Drive +1 dB follows Trim -1 dB"
+									disabled={!autoGainState}
+									onclick={toggleAutoGain}
+								>
+									<span class="auto-gain-lamp" class:lit={autoGainValue}></span>
+									<span>A-GAIN</span>
+								</button>
+							{/if}
 						</div>
 					{:else}
 						<div class="knob-slot">
@@ -937,7 +967,9 @@
 						{col.name ? formatKnob(col.name) : ''}
 					</div>
 					<div class="row main-label" class:degraded={col.degraded}>{col.label}</div>
-					<div class="row sub-label">{col.sub}</div>
+					<div class="row sub-label">
+						{col.name === 'trim' && autoGainValue ? 'LINKED' : col.sub}
+					</div>
 				</div>
 			{/each}
 		</div>
