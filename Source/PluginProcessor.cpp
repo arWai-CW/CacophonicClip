@@ -158,6 +158,10 @@ void CacophonicClipProcessor::processBlock(juce::AudioBuffer<float> &buffer,
     // envelope needs no special case: the crossfade below turns the buffer back
     // into the dry input whenever bypass is fully engaged.
     const auto drivenGain = bypassOn ? 1.0f : displayGain;
+    // CLIP is a current-state indicator. Do not derive it from the five-second
+    // waveform history: one clipped sample would otherwise keep it lit for the
+    // entire visible history and make the lamp's meaning ambiguous.
+    const auto drivenPeak = juce::jmax (inputPeakLeft, inputPeakRight) * drivenGain;
 
     // Feed the bypass reference ring buffers with the raw input (before the DSP
     // touches the buffer) and stash the latency-shifted copy of this block in
@@ -305,6 +309,7 @@ void CacophonicClipProcessor::processBlock(juce::AudioBuffer<float> &buffer,
         meterSnapshot.inputRight = inputPeakRight;
         meterSnapshot.outputLeft = processedLeft;
         meterSnapshot.outputRight = processedRight;
+        meterSnapshot.drivenPeak = drivenPeak;
     }
     this->inputLeft.store(inputPeakLeft);
     this->inputRight.store(inputPeakRight);

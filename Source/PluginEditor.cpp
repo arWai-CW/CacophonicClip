@@ -195,6 +195,7 @@ void CacophonicClipEditor::timerCallback()
     payload->setProperty("inputRight", snapshot.inputRight);
     payload->setProperty("outputLeft", snapshot.outputLeft);
     payload->setProperty("outputRight", snapshot.outputRight);
+    payload->setProperty("drivenPeak", snapshot.drivenPeak);
     // Ring buffer: writeIndex points to the next slot to write, so the oldest
     // sample starts at writeIndex when the buffer is full. Reorder to
     // chronological order (oldest -> newest) before sending to the UI.

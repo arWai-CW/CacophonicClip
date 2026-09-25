@@ -33,6 +33,9 @@ struct MeterSnapshot
     float inputRight = 0.0f;
     float outputLeft = 0.0f;
     float outputRight = 0.0f;
+    // Current audio block's pre-clip driven peak. Unlike the waveform arrays,
+    // this never retains old clipping and is the only source for the CLIP lamp.
+    float drivenPeak = 0.0f;
     std::array<float, waveformPointCount> inputWaveformMin {};
     std::array<float, waveformPointCount> inputWaveformMax {};
     std::array<float, waveformPointCount> drivenWaveformMin {};
