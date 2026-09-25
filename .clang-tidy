@@ -1,0 +1,37 @@
+# Cacophonic Clip 的 C++ lint 設定（uvx clang-tidy -p build）
+# 只對 Source/ 出報告；JUCE submodule 與 build/ 產生檔不算我們的程式碼。
+# 注意：# 只能寫在 block scalar 外面，寫在 Checks: > 裡面會變成 glob 的一部分。
+#
+# 排除原因：
+#   bugprone-pointer-arithmetic-on-polymorphic-object  LLVM 22 在 juce_Ranges.h 上 matcher crash
+#   bugprone-easily-swappable-parameters / bugprone-narrowing-conversions / bugprone-implicit-widening-of-multiplication-result  DSP 與 handler 簽名的噪音
+#   modernize-avoid-c-arrays / modernize-use-trailing-return-type  與 JUCE 風格衝突
+#   readability-identifier-length / readability-magic-numbers / readability-else-after-return  本 repo 不採用的風格規則
+#   readability-function-cognitive-complexity / readability-implicit-bool-conversion / readability-uppercase-literal-suffix  與 JUCE 寫法衝突
+#   readability-braces-around-statements  本 repo 採 JUCE 風格：單行 body 不加 braces（48 處，全部改會淹沒 diff）
+#   portability-avoid-pragma-once  全部 header 都是 #pragma once，改 include guard 無收益
+Checks: >
+  clang-diagnostic-*,
+  bugprone-*,
+  performance-*,
+  portability-*,
+  modernize-*,
+  readability-*,
+  -bugprone-pointer-arithmetic-on-polymorphic-object,
+  -bugprone-easily-swappable-parameters,
+  -bugprone-narrowing-conversions,
+  -bugprone-implicit-widening-of-multiplication-result,
+  -modernize-avoid-c-arrays,
+  -modernize-use-trailing-return-type,
+  -readability-identifier-length,
+  -readability-magic-numbers,
+  -readability-else-after-return,
+  -readability-function-cognitive-complexity,
+  -readability-implicit-bool-conversion,
+  -readability-uppercase-literal-suffix,
+  -readability-braces-around-statements,
+  -portability-avoid-pragma-once
+WarningsAsErrors: ''
+HeaderFilterRegex: '.*/Source/.*'
+# repo 沒有 .clang-format，用 file 會退到 LLVM 樣式，--fix 會重排整段；維持 none。
+FormatStyle: none

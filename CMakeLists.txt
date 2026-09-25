@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 3.22)
 
+# clang-tidy (uvx clang-tidy) 讀 build/compile_commands.json，缺了就 lint 不到
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 project(CacophonicClip VERSION 0.1.0)
 
 add_subdirectory(JUCE)
