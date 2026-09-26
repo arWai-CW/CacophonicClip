@@ -7,7 +7,8 @@ VST3 clipper「Cacophonic Clip」= C++/JUCE 外掛（repo 根目錄）＋ Svelte
 - 根目錄：CMake + JUCE 插件，`Source/PluginProcessor.*`、`Source/PluginEditor.*`、`Source/dsp/ClipperDSP.*`。JUCE 是 **git submodule**（`.gitmodules`），新環境要 `git submodule update --init`。
 - `ui/`：SvelteKit + Svelte 5 + Tailwind 4，套件管理用 **bun**（不是 npm/pnpm）。`ui/AGENTS.md` 有 Svelte MCP 的補充指示（僅在 `ui/` 內工作時適用）。
 - `Source/ui_dist/` 與 `Source/UIResources.zip` 都是 **gitignore 的產生檔**；`WebResourceProvider.h` 讀的是 zip。`ui/build/` 是舊 UI 殘留，勿當成輸出。
-- 無 CI、無 C++ 測試；測試只在 `ui/`（`bun:test`，如 `ui/src/lib/uiState.test.ts`）。C++ 品質靠 lint（見下方「C++ lint」），check 集合寫在根目錄 `.clang-tidy`。
+- `tools/macos-installer/`：macOS 分發用的安裝包（見下方「macOS 分發」）。
+- CI 在 `.github/workflows/build.yml`（GitHub Actions）。無 C++ 測試；測試只在 `ui/`（`bun:test`，如 `ui/src/lib/uiState.test.ts`）。C++ 品質靠 lint（見下方「C++ lint」），check 集合寫在根目錄 `.clang-tidy`。
 
 ## 命令
 
@@ -57,6 +58,19 @@ uvx clang-tidy -p build --quiet --warnings-as-errors='*' \
 - `CLIP_DEV_UI_URL=<url>` 強制指定 URL（任何 build type）；`CLIP_DEV_UI_URL=off` 強制內嵌 zip。
 - `ui/src/routes/+layout.ts` 的 `ssr = false` 不可移除，否則 `@juce-framework/webview` 在 module 層讀 `window.__JUCE__` 會 SSR 掛掉。
 - 純瀏覽器開 dev server 只有 mock 版面，沒有參數與 meter；要觸發 meter 用 `window.__JUCE__.backend.emitByBackend('meterData', JSON.stringify(payload))`，且注入與讀 DOM 要分不同 task（Svelte 5 DOM 更新在 microtask）。
+
+## macOS 分發（dmg 與安裝包）
+
+- dmg 與安裝包都由 CI 的 `package-mac` job 產（只有推 tag 才跑），本機不用手動打包。
+- 來源檔在 `tools/macos-installer/`：`InstallCacophonicClip.applescript`（安裝邏輯）＋ `build-installer.sh`（`osacompile` 成 `.app`、把外掛塞進 `Contents/Resources`、ad-hoc 簽章）。`docs/INSTALL-macOS.txt` 會被放進 dmg 根目錄。
+- **簽章現況只有 ad-hoc**：沒有 Apple Developer Program，所以沒有 Developer ID 也沒有公證。arm64 slice 一定要有簽章才載得進去（JUCE 自動加 `-adhoc_codesign`），**絕對不能 `--remove-signature`**。實測 ad-hoc 在 macOS 27 上 Logic 正常載入，沒有擋。
+- 為什麼要包成 `.app`：未簽章的 `.vst3` / `.component` 被 Gatekeeper 擋時，Finder 右鍵選單**不會**出現「打開」，只有「完成／移到垃圾桶」；`.command` 腳本一樣被擋（`open` 完全沒反應）。`.app` 是唯一吃得到「右鍵 → 打開」的容器。**不要改回 `.pkg`**：實測未簽章的 pkg 在 macOS 27 直接被 Installer 判定「與您的 Mac 版本不相容」而中止。
+- dmg 裡只放 `.app` 與 `INSTALL.txt`，**不要**把原始 `.vst3` / `.component` 一起放，那對使用者是陷阱。
+- 安裝包只寫 `~/Library/Audio/Plug-Ins/`（per-user），不碰 `/Library`、不需要管理員密碼。曾經做過「安裝給所有使用者」的選項，實測 `with administrator privileges` 的授權流程走不完，已拿掉，別加回來。
+- `ditto` **會保留**來源的 quarantine 屬性（`--noqtn` 與 `COPYFILE_DISABLE=1` 都擋不掉），所以安裝完必須顯式 `xattr -cr`，不然 Gatekeeper 照樣擋。
+- 改完安裝包要本機驗一次：`tools/macos-installer/build-installer.sh build/CacophonicClip_artefacts/Debug "<輸出>.app"`，再 `codesign --verify --strict`。
+- dmg 用 `diskutil image create from`，不要用 `hdiutil create -volname`（macOS 27 已 deprecated）；校驗用 `hdiutil verify`。AAX 只有 Windows 會載入，macOS 的 dmg 不放 AAX。
+- 拿到 Apple Developer Program 之後：Developer ID 簽章與 `xcrun notarytool submit --wait` 加在 `package-mac` job，**不要**塞進 `build` job（那個也服務 PR，不能碰憑證）。公證要 `--options=runtime` hardened runtime，而本外掛的 UI 是 WKWebView，可能需要補 `com.apple.security.cs.allow-jit` entitlement，簽完要實機確認 UI 能不能起來。
 
 ## 硬性約束（DESIGN_SPEC §2 §9，違反即驗收失敗）
 

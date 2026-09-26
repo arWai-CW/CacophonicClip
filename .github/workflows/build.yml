@@ -80,11 +80,70 @@ jobs:
                       !**/*.exp
                       !**/*.lib
 
+    # macOS 打包成 dmg。簽章目前走免費路線（見 docs/INSTALL-macOS.txt）：
+    # 沒有 Developer ID 憑證，只保留 JUCE 在 Apple Silicon 上自動產生的 ad-hoc 簽章
+    # （arm64 slice 一定要有簽章才載得進去，絕對不能 --remove-signature）。
+    # 有 Apple Developer Program 之後要把 Developer ID 簽章與 notarytool 公證加在這裡，
+    # 不要塞進上面的 build job，那個 job 也服務 PR，不能碰到憑證。
+    package-mac:
+        name: Package macOS disk image
+        if: startsWith(github.ref, 'refs/tags/')
+        needs: build
+        runs-on: macos-latest
+        steps:
+            # 要拿安裝包原始碼與安裝說明，只拉這兩個路徑就夠
+            - name: Checkout macOS installer sources
+              uses: actions/checkout@v7
+              with:
+                  sparse-checkout: |
+                      /docs/INSTALL-macOS.txt
+                      /tools/macos-installer/
+                  sparse-checkout-cone-mode: false
+
+            - name: Download macOS artifact
+              uses: actions/download-artifact@v8
+              with:
+                  name: Plugin-macOS
+                  path: dist
+
+            # dmg 裡只放安裝包。原始 .vst3 / .component 對使用者是陷阱：
+            # 從瀏覽器下載的檔案帶 quarantine，而 Finder 右鍵選單對 plugin bundle
+            # 不會出現「打開」，使用者只會看到「完成 / 移到垃圾桶」。
+            - name: Build installer app
+              run: tools/macos-installer/build-installer.sh dist "installer/安裝 Cacophonic Clip.app"
+
+            # --strict 會連 resource seal 一起驗。VST3 bundle 裡有 Contents/Resources/moduleinfo.json，
+            # 如果它在簽章之後才被塞進去，這一步就會抓到，壞掉直接讓 job 失敗
+            - name: Verify signatures
+              run: |
+                  codesign --verify --strict "installer/安裝 Cacophonic Clip.app"
+                  codesign --verify --strict "installer/安裝 Cacophonic Clip.app/Contents/Resources/Cacophonic Clip.vst3"
+                  codesign --verify --strict "installer/安裝 Cacophonic Clip.app/Contents/Resources/Cacophonic Clip.component"
+
+            - name: Stage dmg payload
+              run: |
+                  ditto "installer/安裝 Cacophonic Clip.app" "stage/安裝 Cacophonic Clip.app"
+                  cp docs/INSTALL-macOS.txt stage/INSTALL.txt
+
+            # 用 diskutil 而不是 hdiutil create，hdiutil 那組參數在 macOS 27 已經 deprecated
+            - name: Create dmg
+              run: |
+                  diskutil image create from --format UDZO --volumeName "Cacophonic Clip" \
+                    stage "dist/CacophonicClip-${GITHUB_REF_NAME}-macOS.dmg"
+                  hdiutil verify "dist/CacophonicClip-${GITHUB_REF_NAME}-macOS.dmg"
+                  rm -rf stage installer
+
+            - name: Upload dmg
+              uses: actions/upload-artifact@v7
+              with:
+                  name: Release-macOS
+                  path: dist/CacophonicClip-${{ github.ref_name }}-macOS.dmg
+
     # 只有推 tag 才把產物掛上 Release（PR / 一般跑法在這裡直接 skip）
     release:
         name: Attach artifacts to release
         if: startsWith(github.ref, 'refs/tags/')
-        needs: build
+        needs: [build, package-mac]
         runs-on: ubuntu-latest
         permissions:
             contents: write
@@ -94,11 +153,11 @@ jobs:
               with:
                   path: dist
 
-            # Release assets 只能是檔案，vst3/aaxplugin/component 都是目錄，先壓成 zip。
+            # Release assets 只能是檔案，vst3/aaxplugin 都是目錄，Windows 的先壓成 zip。
+            # macOS 已經在 package-mac 做好 dmg，這裡只收。
             # rm -f 是保險：萬一 upload 的排除沒生效，也別把 .exp/.lib 掛上 release
             - name: Pack release assets
               run: |
-                  (cd dist/Plugin-macOS && zip -ry "../CacophonicClip-${GITHUB_REF_NAME}-macOS.zip" VST3 AU AAX)
                   (cd dist/Plugin-Windows && rm -f VST3/*.exp VST3/*.lib AAX/*.exp AAX/*.lib && zip -ry "../CacophonicClip-${GITHUB_REF_NAME}-Windows.zip" VST3 AAX)
 
             # tag 已有 release（手動建過）就補上/覆蓋 asset；沒有就連同 release 一起建。
@@ -109,7 +168,7 @@ jobs:
                   GH_REPO: ${{ github.repository }}
               run: |
                   if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
-                      gh release upload "$GITHUB_REF_NAME" dist/*.zip --clobber
+                      gh release upload "$GITHUB_REF_NAME" dist/*.zip dist/Release-macOS/*.dmg --clobber
                   else
-                      gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --generate-notes dist/*.zip
+                      gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --generate-notes dist/*.zip dist/Release-macOS/*.dmg
                   fi
