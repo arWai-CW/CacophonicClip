@@ -94,10 +94,12 @@ jobs:
                   (cd dist/Plugin-macOS && zip -ry "../CacophonicClip-${GITHUB_REF_NAME}-macOS.zip" VST3 Standalone)
                   (cd dist/Plugin-Windows && zip -ry "../CacophonicClip-${GITHUB_REF_NAME}-Windows.zip" VST3 Standalone)
 
-            # tag 已有 release（手動建過）就補上/覆蓋 asset；沒有就連同 release 一起建
+            # tag 已有 release（手動建過）就補上/覆蓋 asset；沒有就連同 release 一起建。
+            # 沒有 checkout 步驟，gh 從環境變數拿 repo，不依賴 .git
             - name: Create release and upload assets
               env:
                   GH_TOKEN: ${{ github.token }}
+                  GH_REPO: ${{ github.repository }}
               run: |
                   if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
                       gh release upload "$GITHUB_REF_NAME" dist/*.zip --clobber
