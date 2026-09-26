@@ -73,3 +73,34 @@ jobs:
                   path: |
                       build/CacophonicClip_artefacts/Release/VST3/
                       build/CacophonicClip_artefacts/Release/Standalone/
+
+    # 只有推 tag 才把產物掛上 Release（PR / 一般跑法在這裡直接 skip）
+    release:
+        name: Attach artifacts to release
+        if: startsWith(github.ref, 'refs/tags/')
+        needs: build
+        runs-on: ubuntu-latest
+        permissions:
+            contents: write
+        steps:
+            - name: Download build artifacts
+              uses: actions/download-artifact@v8
+              with:
+                  path: dist
+
+            # Release assets 只能是檔案，vst3/app 是目錄，先各自壓成 zip
+            - name: Pack release assets
+              run: |
+                  (cd dist/Plugin-macOS && zip -ry "../CacophonicClip-${GITHUB_REF_NAME}-macOS.zip" VST3 Standalone)
+                  (cd dist/Plugin-Windows && zip -ry "../CacophonicClip-${GITHUB_REF_NAME}-Windows.zip" VST3 Standalone)
+
+            # tag 已有 release（手動建過）就補上/覆蓋 asset；沒有就連同 release 一起建
+            - name: Create release and upload assets
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: |
+                  if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+                      gh release upload "$GITHUB_REF_NAME" dist/*.zip --clobber
+                  else
+                      gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --generate-notes dist/*.zip
+                  fi
