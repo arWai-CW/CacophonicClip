@@ -199,12 +199,14 @@ void CacophonicClipEditor::timerCallback()
     // Ring buffer: writeIndex points to the next slot to write, so the oldest
     // sample starts at writeIndex when the buffer is full. Reorder to
     // chronological order (oldest -> newest) before sending to the UI.
-    const auto pointCount = MeterSnapshot::waveformPointCount;
     const auto writeIndex = snapshot.waveformWriteIndex;
-    const auto filled = juce::jlimit(0, pointCount, snapshot.waveformFilled);
+    const auto filled = juce::jlimit(0, MeterSnapshot::waveformPointCount, snapshot.waveformFilled);
     auto appendChronological = [writeIndex, filled]
         (const std::array<float, MeterSnapshot::waveformPointCount>& source, juce::Array<juce::var>& destination)
     {
+        // Declared inside the lambda: MSVC rejects the outer const pointCount without a
+        // capture default (C3493), while clang warns that capturing it is redundant.
+        constexpr int pointCount = MeterSnapshot::waveformPointCount;
         const auto start = filled == pointCount ? writeIndex : 0;
         for (int i = 0; i < filled; ++i)
             destination.add(source[static_cast<size_t>((start + i) % pointCount)]);

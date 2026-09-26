@@ -19,7 +19,7 @@ jobs:
 
         steps:
             - name: Checkout code
-              uses: actions/checkout@v4
+              uses: actions/checkout@v7
               with:
                   submodules: recursive
 
@@ -67,7 +67,7 @@ jobs:
 
             # 上傳產出的 Plugin 為 Artifacts
             - name: Upload Artifacts
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v7
               with:
                   name: Plugin-${{ runner.os }}
                   path: |
