@@ -3,7 +3,51 @@ cmake_minimum_required(VERSION 3.22)
 # clang-tidy (uvx clang-tidy) 讀 build/compile_commands.json，缺了就 lint 不到
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-project(CacophonicClip VERSION 0.1.0)
+# Bundle 版本：沒指定就用最近的 git tag，讓 Finder「取得資訊」顯示的版本跟著 release 走，
+# 不要在這裡寫死，寫死就會出現 release 1.0.0 但 Finder 顯示 0.1.0 的情況。
+# CI 會在 tag build 用 -DCLIP_VERSION=<tag> 指定，PR build 傳 0.0.0。
+set(CLIP_VERSION "" CACHE STRING "Bundle version, defaults to the most recent git tag")
+
+if(NOT CLIP_VERSION)
+    find_package(Git QUIET)
+    if(GIT_FOUND AND EXISTS "${CMAKE_CURRENT_LIST_DIR}/.git")
+        execute_process(
+            COMMAND "${GIT_EXECUTABLE}" describe --tags --abbrev=0
+            WORKING_DIRECTORY "${CMAKE_CURRENT_LIST_DIR}"
+            OUTPUT_VARIABLE CLIP_VERSION
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+            ERROR_QUIET)
+    endif()
+endif()
+
+# 容忍 v1.2.3 這種 tag 前綴
+string(REGEX REPLACE "^v" "" CLIP_VERSION "${CLIP_VERSION}")
+
+# _juce_version_code 會把各段餵給 math(EXPR)，非數字會讓 configure 直接爆掉，所以這裡擋掉
+if(NOT CLIP_VERSION MATCHES "^[0-9]+(\\.[0-9]+)*$")
+    set(CLIP_VERSION "0.0.0")
+endif()
+
+# 清理完才初始化 build version，不然 v 前綴或被擋掉的非法值會漏進 CFBundleVersion
+set(CLIP_BUILD_VERSION "${CLIP_VERSION}")
+
+# 不在任何 tag 上時，把距離最近 tag 幾個 commit 補進 build version，
+# 這樣自建版至少看得出跟正式版不是同一個
+if(GIT_FOUND AND EXISTS "${CMAKE_CURRENT_LIST_DIR}/.git")
+    execute_process(
+        COMMAND "${GIT_EXECUTABLE}" rev-list --count "${CLIP_VERSION}..HEAD"
+        WORKING_DIRECTORY "${CMAKE_CURRENT_LIST_DIR}"
+        OUTPUT_VARIABLE _clip_commits_ahead
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET)
+    if(_clip_commits_ahead MATCHES "^[1-9][0-9]*$")
+        set(CLIP_BUILD_VERSION "${CLIP_VERSION}.${_clip_commits_ahead}")
+    endif()
+endif()
+
+message(STATUS "Cacophonic Clip version: ${CLIP_VERSION} (build ${CLIP_BUILD_VERSION})")
+
+project(CacophonicClip VERSION ${CLIP_VERSION})
 
 # CI 用 -DCLIP_COPY_PLUGIN_AFTER_BUILD=OFF 關閉（runner 沒有系統插件目錄需求）
 set(CLIP_COPY_PLUGIN_AFTER_BUILD ON CACHE BOOL "Copy the built plugin into the system plugin folders")
@@ -22,6 +66,8 @@ juce_add_plugin(CacophonicClip
     PLUGIN_MANUFACTURER_CODE Caco
     PLUGIN_CODE Clp1
     PRODUCT_NAME "Cacophonic Clip"
+    VERSION ${CLIP_VERSION}
+    BUILD_VERSION ${CLIP_BUILD_VERSION}
     IS_SYNTH FALSE
     NEEDS_MIDI_INPUT FALSE
     NEEDS_MIDI_OUTPUT FALSE

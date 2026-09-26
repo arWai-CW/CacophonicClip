@@ -47,19 +47,21 @@ jobs:
 
             # 不 pin -G：windows-latest 已換成只有 Visual Studio 2026 的 image，
             # 不指定 generator 時 CMake 會自動選裝好的最新 Visual Studio
+            # CLIP_VERSION 固定 0.0.0：PR build 只是驗證能編譯，沒有要發布的版號
             - name: Configure CMake (Windows)
               if: runner.os == 'Windows'
               shell: pwsh
-              run: cmake -B build -A x64 -DJUCE_WEBVIEW2_PACKAGE_LOCATION="$env:USERPROFILE\webview2" -DCLIP_COPY_PLUGIN_AFTER_BUILD=OFF
+              run: cmake -B build -A x64 -DCLIP_VERSION=0.0.0 -DJUCE_WEBVIEW2_PACKAGE_LOCATION="$env:USERPROFILE\webview2" -DCLIP_COPY_PLUGIN_AFTER_BUILD=OFF
 
             - name: Build (Windows)
               if: runner.os == 'Windows'
               run: cmake --build build --config Release
 
             # --- macOS 編譯流程 (產出 Universal Binary) ---
+            # CLIP_VERSION 用 tag 名，Finder 顯示的版本才會跟 release 一致
             - name: Configure CMake (macOS)
               if: runner.os == 'macOS'
-              run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" -DCLIP_COPY_PLUGIN_AFTER_BUILD=OFF
+              run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" -DCLIP_VERSION="${GITHUB_REF_NAME}" -DCLIP_COPY_PLUGIN_AFTER_BUILD=OFF
 
             - name: Build (macOS)
               if: runner.os == 'macOS'
