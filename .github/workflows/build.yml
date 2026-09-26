@@ -1,0 +1,71 @@
+name: Build VST3 / Standalone Plugins
+
+on:
+    push:
+        branches: [main]
+        tags: ['*']
+    pull_request:
+        branches: [main]
+
+jobs:
+    build:
+        name: Build on ${{ matrix.os }}
+        runs-on: ${{ matrix.os }}
+        strategy:
+            matrix:
+                os: [macos-latest, windows-latest]
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+              with:
+                  submodules: recursive
+
+            - name: Set up Bun (for Web UI)
+              uses: oven-sh/setup-bun@v2
+              with:
+                  bun-version: 1.4.2
+
+            - name: Build Web UI
+              working-directory: ui
+              run: |
+                  bun install --frozen-lockfile
+                  bun run build
+
+            # zip 必須在 configure/build 之前存在（juce_add_binary_data 的 DEPENDS）
+            - name: Pack Source/UIResources.zip
+              working-directory: Source/ui_dist
+              run: cmake -E tar cf ../UIResources.zip --format=zip -- .
+
+            # --- Windows 編譯流程 ---
+            - name: Install WebView2 SDK (Windows)
+              if: runner.os == 'Windows'
+              shell: pwsh
+              run: nuget install Microsoft.Web.WebView2 -Version 1.0.3485.44 -OutputDirectory "$env:USERPROFILE\webview2"
+
+            - name: Configure CMake (Windows)
+              if: runner.os == 'Windows'
+              shell: pwsh
+              run: cmake -B build -G "Visual Studio 17 2022" -A x64 -DJUCE_WEBVIEW2_PACKAGE_LOCATION="$env:USERPROFILE\webview2" -DCLIP_COPY_PLUGIN_AFTER_BUILD=OFF
+
+            - name: Build (Windows)
+              if: runner.os == 'Windows'
+              run: cmake --build build --config Release
+
+            # --- macOS 編譯流程 (產出 Universal Binary) ---
+            - name: Configure CMake (macOS)
+              if: runner.os == 'macOS'
+              run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" -DCLIP_COPY_PLUGIN_AFTER_BUILD=OFF
+
+            - name: Build (macOS)
+              if: runner.os == 'macOS'
+              run: cmake --build build --config Release
+
+            # 上傳產出的 Plugin 為 Artifacts
+            - name: Upload Artifacts
+              uses: actions/upload-artifact@v4
+              with:
+                  name: Plugin-${{ runner.os }}
+                  path: |
+                      build/CacophonicClip_artefacts/Release/VST3/
+                      build/CacophonicClip_artefacts/Release/Standalone/
