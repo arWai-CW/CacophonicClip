@@ -1,8 +1,8 @@
 name: Build VST3 / Standalone Plugins
 
 on:
+    # 推 tag（release）才產出插件；main 的 push 不跑，由 pull_request 驗證
     push:
-        branches: [main]
         tags: ['*']
     pull_request:
         branches: [main]
