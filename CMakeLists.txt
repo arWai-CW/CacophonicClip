@@ -115,3 +115,24 @@ target_compile_definitions(CacophonicClip
     PRIVATE
         JUCE_VST3_CAN_REPLACE_VST2=0
 )
+
+# JUCE 的 ad-hoc 簽章有兩條路徑：VST3 target 建立時會簽一次，但把「所有非 App 的 target
+# 都補簽一次」的那條掛在 juce_enable_copy_plugin_step 裡，而那個 function 只在
+# COPY_PLUGIN_AFTER_BUILD 開啟時才會被呼叫。CI 傳 CLIP_COPY_PLUGIN_AFTER_BUILD=OFF，
+# 結果留下兩個問題：AU 完全沒有 bundle 簽章；VST3 的 seal 在 moduleinfo.json 被加進
+# bundle 之後就過期了（codesign --verify --strict 報 sealed resource is missing or
+# invalid）。所以自己在 build 之後補一次，兩種 COPY 設定的產物都一致。
+#
+# add_custom_command 的 POST_BUILD 依加入順序執行，而 juce_add_plugin 在上面，
+# 所以這裡一定是最後執行，seal 才會包含 moduleinfo.json。
+# 拿到 Developer ID 之後，把 --sign - 換成正式憑證並補上公證。
+if(APPLE)
+    foreach(format IN LISTS CLIP_FORMATS)
+        if(format STREQUAL "AAX")
+            continue() # AAX 是 Windows 格式，macOS 上產出來沒有人會載入
+        endif()
+        add_custom_command(TARGET "CacophonicClip_${format}" POST_BUILD
+            COMMAND codesign --force --sign - "$<TARGET_BUNDLE_DIR:CacophonicClip_${format}>"
+            VERBATIM)
+    endforeach()
+endif()
