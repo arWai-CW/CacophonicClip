@@ -39,6 +39,9 @@ for f in "$HERE/InstallCacophonicClip.applescript" "$VST3" "$AU"; do
 done
 
 rm -rf "$OUTPUT"
+# osacompile 不會自己建立輸出路徑的父層，父層不存在時會回
+# coreFoundationUnknownErr (-4960)，所以在這裡先做出來
+mkdir -p "$(dirname "$OUTPUT")"
 osacompile -o "$OUTPUT" "$HERE/InstallCacophonicClip.applescript"
 
 # 背景執行，不要在 Dock 跳動

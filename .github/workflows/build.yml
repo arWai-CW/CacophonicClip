@@ -122,6 +122,7 @@ jobs:
 
             - name: Stage dmg payload
               run: |
+                  mkdir -p stage
                   ditto "installer/安裝 Cacophonic Clip.app" "stage/安裝 Cacophonic Clip.app"
                   cp docs/INSTALL-macOS.txt stage/INSTALL.txt
 
