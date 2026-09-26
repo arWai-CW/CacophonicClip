@@ -10,6 +10,12 @@ set(CLIP_COPY_PLUGIN_AFTER_BUILD ON CACHE BOOL "Copy the built plugin into the s
 
 add_subdirectory(JUCE)
 
+# AAX SDK 內建在 JUCE submodule（juce_audio_plugin_client/AAX/SDK），不需另外安裝
+set(CLIP_FORMATS VST3 AAX)
+if(APPLE)
+    list(APPEND CLIP_FORMATS AU) # AU 只有 macOS 有
+endif()
+
 juce_add_plugin(CacophonicClip
     COMPANY_NAME "CacophonicTones"
     BUNDLE_ID "com.cacophonictones.clip"
@@ -22,7 +28,7 @@ juce_add_plugin(CacophonicClip
     IS_MIDI_EFFECT FALSE
     EDITOR_WANTS_KEYBOARD_FOCUS TRUE
     COPY_PLUGIN_AFTER_BUILD ${CLIP_COPY_PLUGIN_AFTER_BUILD}
-    FORMATS VST3 Standalone
+    FORMATS ${CLIP_FORMATS}
     NEEDS_WEB_BROWSER TRUE
     NEEDS_CURL FALSE
     NEEDS_WEBVIEW2 TRUE

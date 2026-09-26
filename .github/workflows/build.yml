@@ -1,4 +1,4 @@
-name: Build VST3 / Standalone Plugins
+name: Build VST3 / AU / AAX Plugins
 
 on:
     # 推 tag（release）才產出插件；main 的 push 不跑，由 pull_request 驗證
@@ -66,13 +66,17 @@ jobs:
               run: cmake --build build --config Release
 
             # 上傳產出的 Plugin 為 Artifacts
+            # .exp/.lib 是 MSVC 連結 DLL 的副產物，不進 artifact 也不進 release
             - name: Upload Artifacts
               uses: actions/upload-artifact@v7
               with:
                   name: Plugin-${{ runner.os }}
                   path: |
                       build/CacophonicClip_artefacts/Release/VST3/
-                      build/CacophonicClip_artefacts/Release/Standalone/
+                      build/CacophonicClip_artefacts/Release/AAX/
+                      build/CacophonicClip_artefacts/Release/AU/
+                      !**/*.exp
+                      !**/*.lib
 
     # 只有推 tag 才把產物掛上 Release（PR / 一般跑法在這裡直接 skip）
     release:
@@ -88,11 +92,12 @@ jobs:
               with:
                   path: dist
 
-            # Release assets 只能是檔案，vst3/app 是目錄，先各自壓成 zip
+            # Release assets 只能是檔案，vst3/aaxplugin/component 都是目錄，先壓成 zip。
+            # rm -f 是保險：萬一 upload 的排除沒生效，也別把 .exp/.lib 掛上 release
             - name: Pack release assets
               run: |
-                  (cd dist/Plugin-macOS && zip -ry "../CacophonicClip-${GITHUB_REF_NAME}-macOS.zip" VST3 Standalone)
-                  (cd dist/Plugin-Windows && zip -ry "../CacophonicClip-${GITHUB_REF_NAME}-Windows.zip" VST3 Standalone)
+                  (cd dist/Plugin-macOS && zip -ry "../CacophonicClip-${GITHUB_REF_NAME}-macOS.zip" VST3 AU AAX)
+                  (cd dist/Plugin-Windows && rm -f VST3/*.exp VST3/*.lib AAX/*.exp AAX/*.lib && zip -ry "../CacophonicClip-${GITHUB_REF_NAME}-Windows.zip" VST3 AAX)
 
             # tag 已有 release（手動建過）就補上/覆蓋 asset；沒有就連同 release 一起建。
             # 沒有 checkout 步驟，gh 從環境變數拿 repo，不依賴 .git
