@@ -1,5 +1,7 @@
 Cacophonic Clip for macOS
 
+Requires macOS 11.1 or later. Tested on macOS 11.7.6 (Intel) with Logic Pro 10.4.7.
+
 1. Install
 
    Right-click "Install Cacophonic Clip.app" and choose Open, then Open again.

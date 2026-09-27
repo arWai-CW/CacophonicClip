@@ -15,8 +15,10 @@ VST3 clipper「Cacophonic Clip」= C++/JUCE 外掛（repo 根目錄）＋ Svelte
 UI 驗證（順序固定，全部在 `ui/`）：
 
 ```bash
-cd ui && bun run lint && bun run check && bun run test && bun run build
+cd ui && bun run lint && bun run check && bun run build && bun run test
 ```
+
+`build` 必須在 `test` 之前：`cssCompat.test.ts` 掃的是 `Source/ui_dist` 的產出而不是 source，`build` 還沒跑就等於沒有東西可掃。
 
 交付（`UIResources.zip` **不會自動重建**，兩步都要做）：
 
@@ -25,7 +27,9 @@ cd ui && bun run lint && bun run check && bun run test && bun run build
 cmake --build build -j        # build/ 已是 Debug 設定，COPY_PLUGIN_AFTER_BUILD 會安裝 VST3
 ```
 
-C++ 改動只需 `cmake --build build -j`（0 error 0 warning 是驗收標準）。若 `build/` 不存在：`cmake -B build`。改完 `Source/` 下的 .cpp/.h 之後接著跑下面的 C++ lint，兩者都要過。
+C++ 改動只需 `cmake --build build -j`（0 error 0 warning 是驗收標準）。若 `build/` 不存在：`cmake -B build -DCMAKE_BUILD_TYPE=Debug`。改完 `Source/` 下的 .cpp/.h 之後接著跑下面的 C++ lint，兩者都要過。
+
+**換 generator 前必須先 wipe。** JUCE 會在 `build/` 底下自己再開幾個獨立的 CMake 專案（`build/JUCE/tools`、`build/vst3_helpers/*`），它們的 `CMakeCache.txt` 各自記住了 generator，而 CMake **不允許同一個 binary dir 換 generator**。頂層 `build/` 換過 generator 而沒清掉這些子目錄之後，任何 `CMakeLists.txt` 改動觸發的 reconfigure 都會死在 `generator : Ninja does not match the generator used previously`，而且錯誤訊息只提到頂層，會誤判成 CMakeLists 寫錯。修法是 `rm -rf build` 重配，不要去猜是哪個子目錄。
 
 ## C++ lint（改完 C++ 檔案必跑）
 
@@ -62,6 +66,11 @@ uvx clang-tidy -p build --quiet --warnings-as-errors='*' \
 ## macOS 分發（dmg 與安裝包）
 
 - dmg 與安裝包都由 CI 的 `package-mac` job 產（只有推 tag 才跑），本機不用手動打包。
+- **最低支援 macOS 是 11.1**（Big Sur，實測機 11.7.6 / Logic 10.4.7 Intel）。`CMakeLists.txt` 用普通變數把它鎖成 `CMAKE_OSX_DEPLOYMENT_TARGET`，**不可拿掉**：不設的話 minos 會等於 build 主機的 SDK 版本（本機是 27.0、CI 的 macos-latest 至少 15），外掛在舊 macOS 上會「載不進去但也不報錯」，DAW 清單裡直接消失，最難查。11.1 不是隨便挑的，是 UI 的硬下界（`layout.css` 用了 8 處 `inset:` 與 6 處 flexbox `gap:`，都要 Safari 14.1）。CI 的 `Verify deployment target and architectures` 是 gate，會驗兩個 slice 的 minos 都是 11.1 且 x86_64 + arm64 都在。
+- **UI 的 WebView 基線是 WebKit 14**（macOS 11.1 對應的 Safari 14.1），不是 Tailwind 4 的預設 modern 目標。兩個後果：
+  - `layout.css` **不可**用 `@import 'tailwindcss'`，那會產生 `@layer`（Safari 15.4+），而瀏覽器遇到不認得的 at-rule 會把整個 block 連內容丟掉，症狀是整段規則無聲蒸發。要用 `theme.css` / `preflight.css` / `utilities.css` 三個檔案、不帶 `layer()`。`cssCompat.test.ts` 會擋。
+  - focus ring 寫成純 `:focus`，靠一條 `:focus:not(:focus-visible) { outline: none }` 把 ring 還給鍵盤。**不要**改用 `@supports selector(:focus-visible)`：那比我們要救的 WebKit 14 還新。
+  - Tailwind v4 沒有任何瀏覽器目標設定（v4 把 browserslist 與 autoprefixer 都拿掉了），所以防回歸只能靠 `cssCompat.test.ts` 這個 gate，它是唯一會喊的東西。
 - 來源檔在 `tools/macos-installer/`：`InstallCacophonicClip.applescript`（安裝邏輯）＋ `build-installer.sh`（`osacompile` 成 `.app`、把外掛塞進 `Contents/Resources`、ad-hoc 簽章）。`docs/INSTALL-macOS.txt` 會被放進 dmg 根目錄。
 - **簽章現況只有 ad-hoc**：沒有 Apple Developer Program，所以沒有 Developer ID 也沒有公證。arm64 slice 一定要有簽章才載得進去（JUCE 自動加 `-adhoc_codesign`），**絕對不能 `--remove-signature`**。實測 ad-hoc 在 macOS 27 上 Logic 正常載入，沒有擋。
 - 為什麼要包成 `.app`：未簽章的 `.vst3` / `.component` 被 Gatekeeper 擋時，Finder 右鍵選單**不會**出現「打開」，只有「完成／移到垃圾桶」；`.command` 腳本一樣被擋（`open` 完全沒反應）。`.app` 是唯一吃得到「右鍵 → 打開」的容器。**不要改回 `.pkg`**：實測未簽章的 pkg 在 macOS 27 直接被 Installer 判定「與您的 Mac 版本不相容」而中止。

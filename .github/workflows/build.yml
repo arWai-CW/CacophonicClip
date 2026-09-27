@@ -34,6 +34,15 @@ jobs:
                   bun install --frozen-lockfile
                   bun run build
 
+            # cssCompat.test.ts 讀的是 Source/ui_dist 的產出而不是 source，所以必須
+            # 排在 build 後面，這也是 AGENTS.md 把 test 放在驗證順序最後的原因。
+            # 這是 gate 不是 smoke test：Tailwind v4 沒有任何瀏覽器目標設定（v4 把
+            # browserslist 與 autoprefixer 都拿掉了），沒有這個測試就沒有東西會擋住
+            # modern-only 的 CSS 進到內嵌 UI，而症狀是 macOS 11 上整段規則無聲蒸發。
+            - name: Test Web UI
+              working-directory: ui
+              run: bun run test
+
             # zip 必須在 configure/build 之前存在（juce_add_binary_data 的 DEPENDS）
             - name: Pack Source/UIResources.zip
               working-directory: Source/ui_dist
@@ -66,6 +75,25 @@ jobs:
             - name: Build (macOS)
               if: runner.os == 'macOS'
               run: cmake --build build --config Release
+
+            # 這是 gate，不是 informational。沒有這一步，minos 會默默等於 runner 的 SDK
+            # 版本，產出的 plugin 在舊一點的 macOS（例如 Logic 10.4.7 / macOS 11.7.6）
+            # 連載都載不進去，而且 dmg 照樣發得出去，不會有任何一處報錯。
+            # 用 otool 而不是 vtool：otool 在每個 Xcode / CommandLineTools 都有。
+            - name: Verify deployment target and architectures (macOS)
+              if: runner.os == 'macOS'
+              run: |
+                  set -euo pipefail
+                  for bundle in "build/CacophonicClip_artefacts/Release/VST3/Cacophonic Clip.vst3/Contents/MacOS/Cacophonic Clip" \
+                                "build/CacophonicClip_artefacts/Release/AU/Cacophonic Clip.component/Contents/MacOS/Cacophonic Clip"; do
+                      echo "== $bundle"
+                      lipo -info "$bundle"
+                      otool -l "$bundle" | grep -E "minos|sdk"
+                      # 兩個 slice 都要是 11.1（fat binary 會印兩次 minos）
+                      test "$(otool -l "$bundle" | grep -c 'minos 11.1')" -eq 2
+                      lipo -info "$bundle" | grep -q "x86_64"
+                      lipo -info "$bundle" | grep -q "arm64"
+                  done
 
             # 上傳產出的 Plugin 為 Artifacts
             # .exp/.lib 是 MSVC 連結 DLL 的副產物，不進 artifact 也不進 release

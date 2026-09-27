@@ -49,6 +49,22 @@ message(STATUS "Cacophonic Clip version: ${CLIP_VERSION} (build ${CLIP_BUILD_VER
 
 project(CacophonicClip VERSION ${CLIP_VERSION})
 
+# 一定要顯式鎖 macOS deployment target，理由是實測踩過：
+# 不設的話 CMake 會留空，clang 退回自己的預設值，minos 直接等於 build 主機的 SDK 版本。
+# 本機是 macOS 27 SDK 就是 minos 27.0，CI 的 macos-latest 至少是 15 起跳，
+# 結果 plugin 在舊一點的 macOS 上連載都載不進去，Logic 的外掛清單裡根本不會出現。
+# 11.1 是 UI 的硬下界，不是隨便挑的數字：layout.css 用了 8 處 `inset:` 與 6 處
+# flexbox `gap:`，兩者都要 Safari 14.1（= macOS 11.1），而 .stage / .texture /
+# CRT overlay 的定位與 .ladder 的分段都靠它們。實測機是 11.7.6 / Logic 10.4.7。
+# 不要再往下調：SDK 已經不保證更舊的版本，而低於 10.13 的 target 會開始噴一堆
+# deprecation warning，違反 0 warning 的驗收標準。
+# 用普通變數而不是 CACHE 變數：已經存在的 build 目錄，cache 裡通常有一個空的
+# CMAKE_OSX_DEPLOYMENT_TARGET entry，那種情況下 set(... CACHE ...) 會 no-op，
+# 等於什麼都沒做。普通變數會 shadow 掉 cache 值，所以一定生效。
+if(APPLE AND NOT CMAKE_OSX_DEPLOYMENT_TARGET)
+    set(CMAKE_OSX_DEPLOYMENT_TARGET "11.1")
+endif()
+
 # CI 用 -DCLIP_COPY_PLUGIN_AFTER_BUILD=OFF 關閉（runner 沒有系統插件目錄需求）
 set(CLIP_COPY_PLUGIN_AFTER_BUILD ON CACHE BOOL "Copy the built plugin into the system plugin folders")
 
