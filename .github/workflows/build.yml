@@ -172,3 +172,7 @@ jobs:
                   else
                       gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --generate-notes dist/*.zip dist/Release-macOS/*.dmg
                   fi
+                  # 刪掉 tag 會讓 GitHub 把已發布的 release 降成 draft，URL 變成 untagged-<sha>，
+                  # 而且重打 tag 不會把它接回去。所以重打 release 要用 git tag -f 加
+                  # git push --force，不要刪 tag 再重推。這裡強制 publish 一次當保險。
+                  gh release edit "$GITHUB_REF_NAME" --draft=false
