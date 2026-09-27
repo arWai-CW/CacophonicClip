@@ -1,20 +1,30 @@
-Cacophonic Clip 安裝說明（macOS）
+Cacophonic Clip for macOS
 
-1. 安裝
+1. Install
 
-   對「安裝 Cacophonic Clip.app」按右鍵 → 打開 → 打開。
+   Right-click "Install Cacophonic Clip.app" and choose Open, then Open again.
 
-   跳「無法驗證開發者」是正常的，這個外掛沒有 Apple 開發者簽章。
+   macOS will say it cannot verify the developer. That is expected: this plug-in
+   is not signed by Apple.
 
-   右鍵沒有「打開」時，改按兩下，然後到
-   系統設定 → 隱私權與安全性 → 捲到最下面 → 按「仍要打開」。
+   If Open is missing from the menu, double-click it, wait for the warning, then
+   go to System Settings -> Privacy & Security, scroll to the bottom, click
+   "Open Anyway", and double-click it again.
 
-2. 打開 DAW
+2. Open your DAW
 
-   安裝完請完全關閉再開你的 DAW（Cmd+Q），讓它重新掃描外掛。
+   After the installer finishes, quit and reopen your DAW (Cmd+Q) so it rescans
+   the plug-in list.
+
+   VST3 works in every current DAW.
+   Logic also loads it as an audio unit, under Audio Units > External A/AU.
 
 
-要自己拖的話
+Uninstall
 
-   ~/Library/Audio/Plug-Ins/VST3/Cacophonic Clip.vst3
-   ~/Library/Audio/Plug-Ins/Components/Cacophonic Clip.component
+   Drag these two items to the Trash:
+
+     ~/Library/Audio/Plug-Ins/VST3/Cacophonic Clip.vst3
+     ~/Library/Audio/Plug-Ins/Components/Cacophonic Clip.component
+
+   The installer app can be deleted right away, it carries the plug-in inside it.

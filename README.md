@@ -6,15 +6,14 @@
 
 [Latest release (macOS and Windows)](https://github.com/arWai-CW/CacophonicClip/releases/latest)
 
-macOS 是 `.dmg`：掛載後對 `安裝 Cacophonic Clip.app` 按右鍵 → 打開 → 打開。
-外掛沒有 Apple 開發者簽章，第一次打開會被 Gatekeeper 擋，完整步驟在 dmg 裡的 `INSTALL.txt`。
+macOS ships as a `.dmg`: mount it, then right-click `Install Cacophonic Clip.app` and choose Open twice. The plug-in is not signed by Apple, so the first launch is blocked; the dmg carries an `INSTALL.txt` with the full steps.
 
 ## AVAILABLE FORMATS
 
-| Formats    | OS              | Architecture                        |
-| ---------- | --------------- | ----------------------------------- |
-| VST3 / AU  | macOS           | Intel and Apple Silicon (universal) |
-| VST3 / AAX | Windows 10 - 11 | 64-bit                              |
+| Formats   | OS              | Architecture                        |
+| --------- | --------------- | ----------------------------------- |
+| VST3 / AU | macOS           | Intel and Apple Silicon (universal) |
+| VST3      | Windows 10 - 11 | 64-bit                              |
 
 ## HOW IT WORKS
 

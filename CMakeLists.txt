@@ -54,8 +54,9 @@ set(CLIP_COPY_PLUGIN_AFTER_BUILD ON CACHE BOOL "Copy the built plugin into the s
 
 add_subdirectory(JUCE)
 
-# AAX SDK 內建在 JUCE submodule（juce_audio_plugin_client/AAX/SDK），不需另外安裝
-set(CLIP_FORMATS VST3 AAX)
+# 不做 AAX：Windows 上沒有程式碼簽章，未簽章的 AAX bundle 使用者裝不乾淨
+# （AAX SDK 對 bundle 內容有自己的驗證）。要做 AAX 得先解決 Windows 簽章。
+set(CLIP_FORMATS VST3)
 if(APPLE)
     list(APPEND CLIP_FORMATS AU) # AU 只有 macOS 有
 endif()
@@ -128,9 +129,6 @@ target_compile_definitions(CacophonicClip
 # 拿到 Developer ID 之後，把 --sign - 換成正式憑證並補上公證。
 if(APPLE)
     foreach(format IN LISTS CLIP_FORMATS)
-        if(format STREQUAL "AAX")
-            continue() # AAX 是 Windows 格式，macOS 上產出來沒有人會載入
-        endif()
         add_custom_command(TARGET "CacophonicClip_${format}" POST_BUILD
             COMMAND codesign --force --sign - "$<TARGET_BUNDLE_DIR:CacophonicClip_${format}>"
             VERBATIM)

@@ -1,4 +1,4 @@
-name: Build VST3 / AU / AAX Plugins
+name: Build VST3 / AU Plugins
 
 on:
     # 推 tag（release）才產出插件；main 的 push 不跑，由 pull_request 驗證
@@ -75,7 +75,6 @@ jobs:
                   name: Plugin-${{ runner.os }}
                   path: |
                       build/CacophonicClip_artefacts/Release/VST3/
-                      build/CacophonicClip_artefacts/Release/AAX/
                       build/CacophonicClip_artefacts/Release/AU/
                       !**/*.exp
                       !**/*.lib
@@ -110,20 +109,20 @@ jobs:
             # 從瀏覽器下載的檔案帶 quarantine，而 Finder 右鍵選單對 plugin bundle
             # 不會出現「打開」，使用者只會看到「完成 / 移到垃圾桶」。
             - name: Build installer app
-              run: tools/macos-installer/build-installer.sh dist "installer/安裝 Cacophonic Clip.app"
+              run: tools/macos-installer/build-installer.sh dist "installer/Install Cacophonic Clip.app"
 
             # --strict 會連 resource seal 一起驗。VST3 bundle 裡有 Contents/Resources/moduleinfo.json，
             # 如果它在簽章之後才被塞進去，這一步就會抓到，壞掉直接讓 job 失敗
             - name: Verify signatures
               run: |
-                  codesign --verify --strict "installer/安裝 Cacophonic Clip.app"
-                  codesign --verify --strict "installer/安裝 Cacophonic Clip.app/Contents/Resources/Cacophonic Clip.vst3"
-                  codesign --verify --strict "installer/安裝 Cacophonic Clip.app/Contents/Resources/Cacophonic Clip.component"
+                  codesign --verify --strict "installer/Install Cacophonic Clip.app"
+                  codesign --verify --strict "installer/Install Cacophonic Clip.app/Contents/Resources/Cacophonic Clip.vst3"
+                  codesign --verify --strict "installer/Install Cacophonic Clip.app/Contents/Resources/Cacophonic Clip.component"
 
             - name: Stage dmg payload
               run: |
                   mkdir -p stage
-                  ditto "installer/安裝 Cacophonic Clip.app" "stage/安裝 Cacophonic Clip.app"
+                  ditto "installer/Install Cacophonic Clip.app" "stage/Install Cacophonic Clip.app"
                   cp docs/INSTALL-macOS.txt stage/INSTALL.txt
 
             # 用 diskutil 而不是 hdiutil create，hdiutil 那組參數在 macOS 27 已經 deprecated
@@ -154,12 +153,12 @@ jobs:
               with:
                   path: dist
 
-            # Release assets 只能是檔案，vst3/aaxplugin 都是目錄，Windows 的先壓成 zip。
+            # Release assets 只能是檔案，vst3 是目錄，Windows 的先壓成 zip。
             # macOS 已經在 package-mac 做好 dmg，這裡只收。
             # rm -f 是保險：萬一 upload 的排除沒生效，也別把 .exp/.lib 掛上 release
             - name: Pack release assets
               run: |
-                  (cd dist/Plugin-Windows && rm -f VST3/*.exp VST3/*.lib AAX/*.exp AAX/*.lib && zip -ry "../CacophonicClip-${GITHUB_REF_NAME}-Windows.zip" VST3 AAX)
+                  (cd dist/Plugin-Windows && rm -f VST3/*.exp VST3/*.lib && zip -ry "../CacophonicClip-${GITHUB_REF_NAME}-Windows.zip" VST3)
 
             # tag 已有 release（手動建過）就補上/覆蓋 asset；沒有就連同 release 一起建。
             # 沒有 checkout 步驟，gh 從環境變數拿 repo，不依賴 .git

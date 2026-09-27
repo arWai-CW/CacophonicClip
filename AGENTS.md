@@ -69,7 +69,9 @@ uvx clang-tidy -p build --quiet --warnings-as-errors='*' \
 - 安裝包只寫 `~/Library/Audio/Plug-Ins/`（per-user），不碰 `/Library`、不需要管理員密碼。曾經做過「安裝給所有使用者」的選項，實測 `with administrator privileges` 的授權流程走不完，已拿掉，別加回來。
 - `ditto` **會保留**來源的 quarantine 屬性（`--noqtn` 與 `COPYFILE_DISABLE=1` 都擋不掉），所以安裝完必須顯式 `xattr -cr`，不然 Gatekeeper 照樣擋。
 - 改完安裝包要本機驗一次：`tools/macos-installer/build-installer.sh build/CacophonicClip_artefacts/Debug "<輸出>.app"`，再 `codesign --verify --strict`。
-- dmg 用 `diskutil image create from`，不要用 `hdiutil create -volname`（macOS 27 已 deprecated）；校驗用 `hdiutil verify`。AAX 只有 Windows 會載入，macOS 的 dmg 不放 AAX。
+- **不做 AAX**：Windows 上沒有程式碼簽章，未簽章的 AAX bundle 使用者裝不乾淨。要加回來得先解決 Windows 程式碼簽章，否則 `CLIP_FORMATS` 保持只有 `VST3`（macOS 再加 `AU`）。
+- dmg 用 `diskutil image create from`，不要用 `hdiutil create -volname`（macOS 27 已 deprecated）；校驗用 `hdiutil verify`。
+- 使用者可見的字串（`docs/INSTALL-macOS.txt`、安裝包對話框、dmg 與 `.app` 的檔名）一律英文，面向廣泛的網路使用者；`Source/` 與 `tools/` 的程式註解也用英文。build/CI 層的註解維持中文。
 - 拿到 Apple Developer Program 之後：Developer ID 簽章與 `xcrun notarytool submit --wait` 加在 `package-mac` job，**不要**塞進 `build` job（那個也服務 PR，不能碰憑證）。公證要 `--options=runtime` hardened runtime，而本外掛的 UI 是 WKWebView，可能需要補 `com.apple.security.cs.allow-jit` entitlement，簽完要實機確認 UI 能不能起來。
 
 ## 硬性約束（DESIGN_SPEC §2 §9，違反即驗收失敗）
