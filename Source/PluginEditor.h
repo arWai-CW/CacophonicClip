@@ -35,6 +35,25 @@ private:
     juce::WebToggleButtonRelay autoGainRelay { ParameterIDs::autoGain };
     juce::WebBrowserComponent webView {
         juce::WebBrowserComponent::Options{}
+            // Windows' default backend is the IE/ActiveX WebBrowser control,
+            // which has no resource provider support at all: it would navigate
+            // getResourceProviderRoot() ("https://juce.backend/") as a real
+            // network request and show a browser error page. JUCE only builds
+            // the WebView2 platform part when the backend is exactly
+            // Backend::webview2 (see juce_WebBrowserComponent_windows.cpp), so
+            // this must be requested explicitly. Inert on macOS/Linux, where
+            // the platform part ignores the backend.
+            .withBackend (juce::WebBrowserComponent::Options::Backend::webview2)
+            // The default WebView2 user data folder may be denied access when
+            // the host DAW lives under a protected path, which silently falls
+            // back to IE as well. Point it at a writable per-plugin folder
+            // instead (see WinWebView2::withUserDataFolder and
+            // WebViewPluginDemo.h in the JUCE examples).
+            .withWinWebView2Options (
+                juce::WebBrowserComponent::Options::WinWebView2{}
+                    .withUserDataFolder (juce::File::getSpecialLocation (
+                                             juce::File::SpecialLocationType::tempDirectory)
+                                             .getChildFile ("CacophonicClip-WebView2")))
             .withNativeIntegrationEnabled()
             .withOptionsFrom (trimRelay)
             .withOptionsFrom (driveRelay)
