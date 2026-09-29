@@ -1,6 +1,6 @@
 /* Tailwind v4 的 `index.css` 是把這三段各自包進 `@layer theme / base /
-   utilities`，而 `@layer` 是 Safari 15.4 才有的東西。macOS 11 的 WebView 是
-   WebKit 14（Safari 14），不認得 at-rule 時會把整個 block 連內容一起丟掉，所以
+   utilities`，而 `@layer` 是 Safari 15.4 才有的東西。macOS 11.3 的 WebView 是
+   WebKit 14（Safari 14.1），不認得 at-rule 時會把整個 block 連內容一起丟掉，所以
    那個寫法在舊系統上不是「掉幾個 utility」，是 Tailwind 的 preflight 整個蒸發。
    這裡改用 Tailwind 自己拆好的三個檔案、不帶 layer()：內容完全相同，只是不再
    產生 `@layer`，舊 WebKit 也就吃得下。
@@ -413,7 +413,7 @@ button {
 	color: var(--ivory);
 }
 
-/* Focus rings are written as plain `:focus` so WebKit 14 (macOS 11) shows them
+/* Focus rings are written as plain `:focus` so WebKit 14 (macOS 11.3) shows them
    too - `:focus-visible` is Safari 15.4+. Browsers that do support it get the
    ring back only for keyboard focus via the `:focus:not(:focus-visible)` reset
    at the bottom of this file. */

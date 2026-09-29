@@ -66,8 +66,9 @@ uvx clang-tidy -p build --quiet --warnings-as-errors='*' \
 ## macOS 分發（dmg 與安裝包）
 
 - dmg 與安裝包都由 CI 的 `package-mac` job 產（只有推 tag 才跑），本機不用手動打包。
-- **最低支援 macOS 是 11.1**（Big Sur，實測機 11.7.6 / Logic 10.4.7 Intel）。`CMakeLists.txt` 用普通變數把它鎖成 `CMAKE_OSX_DEPLOYMENT_TARGET`，**不可拿掉**：不設的話 minos 會等於 build 主機的 SDK 版本（本機是 27.0、CI 的 macos-latest 至少 15），外掛在舊 macOS 上會「載不進去但也不報錯」，DAW 清單裡直接消失，最難查。11.1 不是隨便挑的，是 UI 的硬下界（`layout.css` 用了 8 處 `inset:` 與 6 處 flexbox `gap:`，都要 Safari 14.1）。CI 的 `Verify deployment target and architectures` 是 gate，會驗兩個 slice 的 minos 都是 11.1 且 x86_64 + arm64 都在。
-- **UI 的 WebView 基線是 WebKit 14**（macOS 11.1 對應的 Safari 14.1），不是 Tailwind 4 的預設 modern 目標。兩個後果：
+- **最低支援 macOS 是 11.3**（Big Sur 11.3）。`CMakeLists.txt` 用普通變數把它鎖成 `CMAKE_OSX_DEPLOYMENT_TARGET`，**不可拿掉**：不設的話 minos 會等於 build 主機的 SDK 版本（本機是 27.0、CI 的 macos-latest 至少 15），外掛在舊 macOS 上會「載不進去但也不報錯」，DAW 清單裡直接消失，最難查。11.3 不是隨便挑的，是 UI 的硬下界（`layout.css` 用了 8 處 `inset:` 與 6 處 flexbox `gap:`，都要 Safari 14.1）。CI 的 `Verify deployment target and architectures` 是 gate，會驗兩個 slice 的 minos 都是 11.3 且 x86_64 + arm64 都在。
+  - **為什麼是 11.3 不是 11.1：Safari 14.1 隨 macOS Big Sur 11.3 出貨**（Apple 的 Safari 14.1 Release Notes 明寫 "ships with ... macOS Big Sur 11.3"），macOS 11.1 / 11.2 的 WebView 還是 Safari 14.0，`inset` 與 flexbox `gap` 都沒有。原本寫 11.1 是把這兩件事搞混了，症狀比沒有更難查：外掛在 11.1 / 11.2 **會載入成功但面板整個塌掉**（`.stage{position:fixed;inset:0}` 沒有 `inset` 就是四個 offset 全 auto），而 11.0 是乾脆載不進去。要真的支援 11.0 得重寫 UI（`inset` 換 `top/right/bottom/left`、`gap` 換 margin），目前不做。
+- **UI 的 WebView 基線是 WebKit 14**（macOS 11.3 對應的 Safari 14.1），不是 Tailwind 4 的預設 modern 目標。兩個後果：
   - `layout.css` **不可**用 `@import 'tailwindcss'`，那會產生 `@layer`（Safari 15.4+），而瀏覽器遇到不認得的 at-rule 會把整個 block 連內容丟掉，症狀是整段規則無聲蒸發。要用 `theme.css` / `preflight.css` / `utilities.css` 三個檔案、不帶 `layer()`。`cssCompat.test.ts` 會擋。
   - focus ring 寫成純 `:focus`，靠一條 `:focus:not(:focus-visible) { outline: none }` 把 ring 還給鍵盤。**不要**改用 `@supports selector(:focus-visible)`：那比我們要救的 WebKit 14 還新。
   - Tailwind v4 沒有任何瀏覽器目標設定（v4 把 browserslist 與 autoprefixer 都拿掉了），所以防回歸只能靠 `cssCompat.test.ts` 這個 gate，它是唯一會喊的東西。

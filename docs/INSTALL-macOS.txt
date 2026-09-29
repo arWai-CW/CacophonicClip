@@ -1,6 +1,11 @@
 Cacophonic Clip for macOS
 
-Requires macOS 11.1 or later. Tested on macOS 11.7.6 (Intel) with Logic Pro 10.4.7.
+Requires macOS 11.3 or later.
+
+11.3 is the floor because the interface needs Safari 14.1 (CSS `inset` and flexbox
+`gap`), and Safari 14.1 first shipped with Big Sur 11.3. On macOS 11.0 to 11.2 the
+plug-in would load but the panel would not lay out, so 11.3 is set as the minimum
+rather than attempting to support those releases.
 
 1. Install
 

@@ -77,8 +77,8 @@ jobs:
               run: cmake --build build --config Release
 
             # 這是 gate，不是 informational。沒有這一步，minos 會默默等於 runner 的 SDK
-            # 版本，產出的 plugin 在舊一點的 macOS（例如 Logic 10.4.7 / macOS 11.7.6）
-            # 連載都載不進去，而且 dmg 照樣發得出去，不會有任何一處報錯。
+            # 版本，產出的 plugin 在 macOS 11 上連載都載不進去，而且 dmg 照樣發得出去，
+            # 不會有任何一處報錯。
             # 用 otool 而不是 vtool：otool 在每個 Xcode / CommandLineTools 都有。
             - name: Verify deployment target and architectures (macOS)
               if: runner.os == 'macOS'
@@ -89,8 +89,8 @@ jobs:
                       echo "== $bundle"
                       lipo -info "$bundle"
                       otool -l "$bundle" | grep -E "minos|sdk"
-                      # 兩個 slice 都要是 11.1（fat binary 會印兩次 minos）
-                      test "$(otool -l "$bundle" | grep -c 'minos 11.1')" -eq 2
+                      # 兩個 slice 都要是 11.3（fat binary 會印兩次 minos）
+                      test "$(otool -l "$bundle" | grep -c 'minos 11.3')" -eq 2
                       lipo -info "$bundle" | grep -q "x86_64"
                       lipo -info "$bundle" | grep -q "arm64"
                   done

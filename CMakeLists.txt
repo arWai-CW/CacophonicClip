@@ -53,16 +53,22 @@ project(CacophonicClip VERSION ${CLIP_VERSION})
 # 不設的話 CMake 會留空，clang 退回自己的預設值，minos 直接等於 build 主機的 SDK 版本。
 # 本機是 macOS 27 SDK 就是 minos 27.0，CI 的 macos-latest 至少是 15 起跳，
 # 結果 plugin 在舊一點的 macOS 上連載都載不進去，Logic 的外掛清單裡根本不會出現。
-# 11.1 是 UI 的硬下界，不是隨便挑的數字：layout.css 用了 8 處 `inset:` 與 6 處
-# flexbox `gap:`，兩者都要 Safari 14.1（= macOS 11.1），而 .stage / .texture /
-# CRT overlay 的定位與 .ladder 的分段都靠它們。實測機是 11.7.6 / Logic 10.4.7。
-# 不要再往下調：SDK 已經不保證更舊的版本，而低於 10.13 的 target 會開始噴一堆
-# deprecation warning，違反 0 warning 的驗收標準。
+# 11.3 是 UI 的硬下界，不是隨便挑的數字：layout.css 用了 8 處 `inset:` 與 6 處
+# flexbox `gap:`，兩者都要 Safari 14.1，而 .stage / .texture / CRT overlay 的定位
+# 與 .ladder 的分段都靠它們。關鍵是 Safari 14.1 隨 macOS Big Sur **11.3** 一起出貨
+# （Apple 的 Safari 14.1 Release Notes 寫的是 "ships with ... macOS Big Sur 11.3"），
+# macOS 11.1 / 11.2 的 WebView 還是 Safari 14.0，兩個特性都沒有。
+# 這裡踩過坑：原本寫 11.1（誤以為 11.1 = Safari 14.1），結果 11.1 / 11.2 會「外掛載入
+# 成功但面板整個塌掉」——`.stage{position:fixed;inset:0}` 沒有 inset 就是四個 offset
+# 全 auto，那比 11.0 的「載不進去」更難查。11.3 讓 11.1 / 11.2 落回明確的載入失敗。
+# 不要再往下調：UI 要重寫（inset 換 top/right/bottom/left、gap 換 margin）才可能，
+# 而且 SDK 已經不保證更舊的版本，低於 10.13 的 target 會開始噴一堆 deprecation
+# warning，違反 0 warning 的驗收標準。
 # 用普通變數而不是 CACHE 變數：已經存在的 build 目錄，cache 裡通常有一個空的
 # CMAKE_OSX_DEPLOYMENT_TARGET entry，那種情況下 set(... CACHE ...) 會 no-op，
 # 等於什麼都沒做。普通變數會 shadow 掉 cache 值，所以一定生效。
 if(APPLE AND NOT CMAKE_OSX_DEPLOYMENT_TARGET)
-    set(CMAKE_OSX_DEPLOYMENT_TARGET "11.1")
+    set(CMAKE_OSX_DEPLOYMENT_TARGET "11.3")
 endif()
 
 # CI 用 -DCLIP_COPY_PLUGIN_AFTER_BUILD=OFF 關閉（runner 沒有系統插件目錄需求）

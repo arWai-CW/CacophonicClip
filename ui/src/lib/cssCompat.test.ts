@@ -1,5 +1,5 @@
 /**
- * Gate for the WebKit baseline: the plug-in supports macOS 11.1, whose WebView
+ * Gate for the WebKit baseline: the plug-in supports macOS 11.3, whose WebView
  * is WebKit 14 (Safari 14.1). Tailwind v4 has no browser-target setting of its
  * own - it dropped browserslist and autoprefixer in v4 - so nothing in the build
  * stops a modern-only CSS feature from reaching the embedded UI. This test is
