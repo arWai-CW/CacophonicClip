@@ -86,7 +86,7 @@ endif()
 juce_add_plugin(CacophonicClip
     COMPANY_NAME "CacophonicTones"
     BUNDLE_ID "com.cacophonictones.clip"
-    PLUGIN_MANUFACTURER_CODE Caco
+    PLUGIN_MANUFACTURER_CODE Cphn
     PLUGIN_CODE Clp1
     PRODUCT_NAME "Cacophonic Clip"
     VERSION ${CLIP_VERSION}
